@@ -119,7 +119,7 @@ class FronteraScheduler(Scheduler):
 
     def open(self, spider):
         settings = ScrapySettingsAdapter(spider.crawler.settings)
-        settings.attributes.update(getattr(spider, 'frontera_settings', {}))
+        settings.attributes.update({'spider_settings':getattr(spider, 'frontera_settings', {})})
         self.frontier = ScrapyFrontierManager(settings)
         self._delay_on_empty = self.frontier.manager.settings.get('DELAY_ON_EMPTY')
 

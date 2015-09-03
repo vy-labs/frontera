@@ -79,10 +79,10 @@ class SQLiteBackend(Backend):
         # Get settings
         settings = manager.settings
 
-        assert 'frontier' in settings.attributes, "frontier missing in frontera settings"
+        assert 'frontier' in settings.attributes.get('spider_settings', {}), "frontier missing in frontera settings"
 
         class Page(PageMixin, Base):
-            __tablename__ = settings.attributes.get('frontier')
+            __tablename__ = settings.attributes.get('spider_settings', {}).get('frontier')
 
         self.page_model = Page
 
