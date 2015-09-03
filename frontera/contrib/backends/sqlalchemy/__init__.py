@@ -10,6 +10,7 @@ from sqlalchemy import UniqueConstraint
 
 from frontera import Backend
 from frontera.utils.misc import load_object
+from frontera.core.models import Response as frontera_response
 
 # Default settings
 DEFAULT_ENGINE = 'sqlite:///:memory:'
@@ -62,6 +63,9 @@ class Page(Base):
     state = Column(String(12))
     error = Column(String(20))
     meta = Column(PickleType())
+    headers = Column(PickleType())
+    cookies = Column(PickleType())
+    method = Column(String(6))
 
     @classmethod
     def query(cls, session):
@@ -135,7 +139,8 @@ class SQLiteBackend(Backend):
         next_pages = []
         for db_page in query:
             db_page.state = Page.State.QUEUED
-            request = self.manager.request_model(url=db_page.url, meta=db_page.meta)
+            request = self.manager.request_model(url=db_page.url, meta=db_page.meta, headers=db_page.headers,
+                                                 cookies=db_page.cookies, method=db_page.method)
             next_pages.append(request)
         self.session.commit()
         return next_pages
@@ -156,22 +161,33 @@ class SQLiteBackend(Backend):
         db_page.error = error
         self.session.commit()
 
+    def _create_page(self, obj):
+        db_page = self.page_model()
+        db_page.fingerprint = obj.meta['fingerprint']
+        db_page.state = Page.State.NOT_CRAWLED
+        db_page.url = obj.url
+        db_page.created_at = datetime.datetime.utcnow()
+        db_page.meta = obj.meta
+
+        if not isinstance(obj, frontera_response):
+            db_page.headers = obj.headers
+            db_page.method = obj.method
+            db_page.cookies = obj.cookies
+        else:
+            db_page.depth = 0
+
+        return db_page
+
     def _get_or_create_db_page(self, obj):
         if not self._request_exists(obj.meta['fingerprint']):
-            db_request = self.page_model()
-            db_request.fingerprint = obj.meta['fingerprint']
-            db_request.state = Page.State.NOT_CRAWLED
-            db_request.url = obj.url
-            db_request.depth = 0
-            db_request.created_at = datetime.datetime.utcnow()
-            db_request.meta = obj.meta
-            self.session.add(db_request)
-            self.manager.logger.backend.debug('Creating request %s' % db_request)
-            return db_request, True
+            db_page = self._create_page(obj)
+            self.session.add(db_page)
+            self.manager.logger.backend.debug('Creating request %s' % db_page)
+            return db_page, True
         else:
-            db_request = self.page_model.query(self.session).filter_by(fingerprint=obj.meta['fingerprint']).first()
-            self.manager.logger.backend.debug('Request exists %s' % db_request)
-            return db_request, False
+            db_page = self.page_model.query(self.session).filter_by(fingerprint=obj.meta['fingerprint']).first()
+            self.manager.logger.backend.debug('Request exists %s' % db_page)
+            return db_page, False
 
     def _request_exists(self, fingerprint):
         q = self.page_model.query(self.session).filter_by(fingerprint=fingerprint)
