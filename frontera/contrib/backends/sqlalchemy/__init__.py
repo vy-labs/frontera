@@ -77,7 +77,6 @@ class SQLiteBackend(Backend):
     def __init__(self, manager):
         self.manager = manager
         self.pages_crawled_in_current_batch = 0
-
         # Get settings
         settings = manager.settings
 
@@ -172,12 +171,10 @@ class SQLiteBackend(Backend):
         db_page.url = obj.url
         db_page.created_at = datetime.datetime.utcnow()
         db_page.meta = obj.meta
-
         if not isinstance(obj, frontera_response):
             db_page.headers = obj.headers
             db_page.method = obj.method
             db_page.cookies = obj.cookies
-        else:
             db_page.depth = 0
 
         return db_page
