@@ -9,7 +9,6 @@ from sqlalchemy import Column, String, Integer, PickleType
 from sqlalchemy import UniqueConstraint
 
 from frontera import Backend
-from frontera.utils.misc import load_object
 from frontera.core.models import Response as frontera_response
 
 # Default settings
