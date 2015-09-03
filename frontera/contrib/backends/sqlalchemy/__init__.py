@@ -15,12 +15,9 @@ from frontera.core.models import Response as frontera_response
 # Default settings
 DEFAULT_ENGINE = 'sqlite:///:memory:'
 DEFAULT_ENGINE_ECHO = False
-DEFAULT_DROP_ALL_TABLES = True
-DEFAULT_CLEAR_CONTENT = True
-DEFAULT_MODELS = {
-    'Page': 'frontera.contrib.backends.sqlalchemy.Page',
-}
-
+DEFAULT_DROP_ALL_TABLES = False
+DEFAULT_CLEAR_CONTENT = False
+UPDATE_STATUS_AFTER = 40
 Base = declarative_base()
 
 
@@ -38,8 +35,7 @@ class DatetimeTimestamp(TypeDecorator):
         return datetime.datetime.strptime(value, self.timestamp_format)
 
 
-class Page(Base):
-    __tablename__ = 'pages'
+class PageMixin(object):
     __table_args__ = (
         UniqueConstraint('url'),
         {
@@ -80,20 +76,26 @@ class SQLiteBackend(Backend):
 
     def __init__(self, manager):
         self.manager = manager
+        self.pages_crawled_in_current_batch = 0
 
         # Get settings
         settings = manager.settings
+
+        assert 'frontier' in settings.attributes, "frontier missing in frontera settings"
+
+        class Page(PageMixin, Base):
+            __tablename__ = settings.attributes.get('frontier')
+
+        self.page_model = Page
+
+        # Get settings`
         engine = settings.get('SQLALCHEMYBACKEND_ENGINE', DEFAULT_ENGINE)
         engine_echo = settings.get('SQLALCHEMYBACKEND_ENGINE_ECHO', DEFAULT_ENGINE_ECHO)
         drop_all_tables = settings.get('SQLALCHEMYBACKEND_DROP_ALL_TABLES', DEFAULT_DROP_ALL_TABLES)
         clear_content = settings.get('SQLALCHEMYBACKEND_CLEAR_CONTENT', DEFAULT_CLEAR_CONTENT)
-        models = settings.get('SQLALCHEMYBACKEND_MODELS', DEFAULT_MODELS)
 
         # Create engine
         self.engine = create_engine(engine, echo=engine_echo)
-
-        # Load models
-        self.models = dict([(name, load_object(klass)) for name, klass in models.items()])
 
         # Drop tables if we have to
         if drop_all_tables:
@@ -114,14 +116,11 @@ class SQLiteBackend(Backend):
     def from_manager(cls, manager):
         return cls(manager)
 
-    @property
-    def page_model(self):
-        return self.models['Page']
-
     def frontier_start(self):
         pass
 
     def frontier_stop(self):
+        self.session.commit()
         self.session.close()
         self.engine.dispose()
 
@@ -132,13 +131,13 @@ class SQLiteBackend(Backend):
 
     def get_next_requests(self, max_next_requests, **kwargs):
         query = self.page_model.query(self.session)
-        query = query.filter(self.page_model.state == Page.State.NOT_CRAWLED)
+        query = query.filter(self.page_model.state == PageMixin.State.NOT_CRAWLED)
         query = self._get_order_by(query)
         if max_next_requests:
             query = query.limit(max_next_requests)
         next_pages = []
         for db_page in query:
-            db_page.state = Page.State.QUEUED
+            db_page.state = PageMixin.State.QUEUED
             request = self.manager.request_model(url=db_page.url, meta=db_page.meta, headers=db_page.headers,
                                                  cookies=db_page.cookies, method=db_page.method)
             next_pages.append(request)
@@ -147,24 +146,29 @@ class SQLiteBackend(Backend):
 
     def page_crawled(self, response, links):
         db_page, _ = self._get_or_create_db_page(response)
-        db_page.state = Page.State.CRAWLED
+        db_page.state = PageMixin.State.CRAWLED
         db_page.status_code = response.status_code
         for link in links:
             db_page_from_link, created = self._get_or_create_db_page(link)
             if created:
                 db_page_from_link.depth = db_page.depth+1
-        self.session.commit()
+            self.pages_crawled_in_current_batch += 1
+
+        if self.pages_crawled_in_current_batch and self.pages_crawled_in_current_batch > \
+                UPDATE_STATUS_AFTER:
+            self.session.commit()
+            self.pages_crawled_in_current_batch = 0
 
     def request_error(self, request, error):
         db_page, _ = self._get_or_create_db_page(request)
-        db_page.state = Page.State.ERROR
+        db_page.state = PageMixin.State.ERROR
         db_page.error = error
         self.session.commit()
 
     def _create_page(self, obj):
         db_page = self.page_model()
         db_page.fingerprint = obj.meta['fingerprint']
-        db_page.state = Page.State.NOT_CRAWLED
+        db_page.state = PageMixin.State.NOT_CRAWLED
         db_page.url = obj.url
         db_page.created_at = datetime.datetime.utcnow()
         db_page.meta = obj.meta
