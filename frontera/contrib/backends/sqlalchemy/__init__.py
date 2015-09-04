@@ -16,7 +16,7 @@ DEFAULT_ENGINE = 'sqlite:///:memory:'
 DEFAULT_ENGINE_ECHO = False
 DEFAULT_DROP_ALL_TABLES = False
 DEFAULT_CLEAR_CONTENT = False
-UPDATE_STATUS_AFTER = 100
+UPDATE_STATUS_AFTER = 50
 Base = declarative_base()
 
 
@@ -55,8 +55,8 @@ class PageMixin(object):
     depth = Column(Integer, nullable=False)
     created_at = Column(DatetimeTimestamp(20), nullable=False)
     status_code = Column(String(20))
-    state = Column(String(12))
-    error = Column(String(20))
+    state = Column(String(12), index=True)
+    error = Column(String(50))
     meta = Column(PickleType())
     headers = Column(PickleType())
     cookies = Column(PickleType())
@@ -72,6 +72,8 @@ class PageMixin(object):
 
 class SQLiteBackend(Backend):
     component_name = 'SQLite Backend'
+    spider_args = []
+    spider_kwargs = {}
 
     def __init__(self, manager):
         self.manager = manager
@@ -86,7 +88,10 @@ class SQLiteBackend(Backend):
 
         self.page_model = Page
 
-        # Get settings`
+        self.spider_args = settings.attributes.get('spider_settings', {}).get('args', [])
+        self.spider_kwargs = settings.attributes.get('spider_settings', {}).get('kwargs', {})
+
+        # Get settings
         engine = settings.get('SQLALCHEMYBACKEND_ENGINE', DEFAULT_ENGINE)
         engine_echo = settings.get('SQLALCHEMYBACKEND_ENGINE_ECHO', DEFAULT_ENGINE_ECHO)
         drop_all_tables = settings.get('SQLALCHEMYBACKEND_DROP_ALL_TABLES', DEFAULT_DROP_ALL_TABLES)
@@ -146,6 +151,9 @@ class SQLiteBackend(Backend):
         db_page, _ = self._get_or_create_db_page(response)
         db_page.state = PageMixin.State.CRAWLED
         db_page.status_code = response.status_code
+        if response.status_code not in range(200,302):
+            db_page.state = PageMixin.State.ERROR
+            db_page.error = "Unhandled HTTP response"
         for link in links:
             db_page_from_link, created = self._get_or_create_db_page(link)
             if created:
