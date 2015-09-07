@@ -133,7 +133,7 @@ class SQLiteBackend(Backend):
         self.session.commit()
 
     def get_next_requests(self, max_next_requests, **kwargs):
-        query = self.page_model.query(self.session)
+        query = self.page_model.query(self.session).with_lockmode('update')
         query = query.filter(self.page_model.state == PageMixin.State.NOT_CRAWLED)
         query = self._get_order_by(query)
         if max_next_requests:
