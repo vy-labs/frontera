@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 import datetime
+import os
 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine
@@ -19,7 +20,7 @@ DEFAULT_CLEAR_CONTENT = False
 UPDATE_STATUS_AFTER = 1000
 Base = declarative_base()
 
-DEBUG = True
+DEBUG = False if os.environ.get("env", 'DEBUG') == 'PRODUCTION' else True
 
 if DEBUG:
     import logging
