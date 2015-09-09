@@ -103,11 +103,16 @@ class FronteraScheduler(Scheduler):
 
     def process_spider_output(self, response, result, spider):
         links = []
-        for element in result:
-            if isinstance(element, Request):
-                links.append(element)
-            else:
-                yield element
+        try:
+            for element in result:
+                if isinstance(element, Request):
+                    links.append(element)
+                else:
+                    yield element
+        except Exception, e:
+            self.process_exception(response.request, e, spider)
+            raise e
+
         self.frontier.page_crawled(response=response,
                                    links=links)
         self.stats_manager.add_crawled_page(response.status, len(links))

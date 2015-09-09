@@ -1,3 +1,4 @@
+from scrapy.spidermiddlewares.httperror import HttpError
 
 
 class BaseSchedulerMiddleware(object):
@@ -23,5 +24,12 @@ class SchedulerSpiderMiddleware(BaseSchedulerMiddleware):
 
 
 class SchedulerDownloaderMiddleware(BaseSchedulerMiddleware):
+    def process_response(self, request, response, spider):
+        if response.status not in xrange(200,303):
+            error_msg = "Unhandled http status {0}, Response {1}".format(response.status, response)
+            request.meta['error_status'] = response.status
+            self.scheduler.process_exception(request, HttpError(error_msg), spider)
+        return response
+
     def process_exception(self, request, exception, spider):
         return self.scheduler.process_exception(request, exception, spider)

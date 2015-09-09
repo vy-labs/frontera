@@ -61,6 +61,7 @@ class PageMixin(object):
     headers = Column(PickleType())
     cookies = Column(PickleType())
     method = Column(String(6))
+    body = Column(PickleType())
 
     @classmethod
     def query(cls, session):
@@ -142,7 +143,7 @@ class SQLiteBackend(Backend):
         for db_page in query:
             db_page.state = PageMixin.State.QUEUED
             request = self.manager.request_model(url=db_page.url, meta=db_page.meta, headers=db_page.headers,
-                                                 cookies=db_page.cookies, method=db_page.method)
+                                                 cookies=db_page.cookies, method=db_page.method, body=db_page.body)
             next_pages.append(request)
         self.session.commit()
         return next_pages
@@ -151,9 +152,6 @@ class SQLiteBackend(Backend):
         db_page, _ = self._get_or_create_db_page(response)
         db_page.state = PageMixin.State.CRAWLED
         db_page.status_code = response.status_code
-        if response.status_code not in range(200,302):
-            db_page.state = PageMixin.State.ERROR
-            db_page.error = "Unhandled HTTP response"
         for link in links:
             db_page_from_link, created = self._get_or_create_db_page(link)
             if created:
@@ -168,6 +166,9 @@ class SQLiteBackend(Backend):
     def request_error(self, request, error):
         db_page, _ = self._get_or_create_db_page(request)
         db_page.state = PageMixin.State.ERROR
+        status = request.meta.get('scrapy_meta', {}).get('error_status', None)
+        if status:
+            db_page.status_code = status
         db_page.error = error
         self.session.commit()
 
@@ -182,6 +183,8 @@ class SQLiteBackend(Backend):
             db_page.headers = obj.headers
             db_page.method = obj.method
             db_page.cookies = obj.cookies
+            if obj.method.lower() == 'post':
+                db_page.body = obj.body
             db_page.depth = 0
 
         return db_page
