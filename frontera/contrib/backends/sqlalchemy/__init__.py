@@ -16,9 +16,17 @@ DEFAULT_ENGINE = 'sqlite:///:memory:'
 DEFAULT_ENGINE_ECHO = False
 DEFAULT_DROP_ALL_TABLES = False
 DEFAULT_CLEAR_CONTENT = False
-UPDATE_STATUS_AFTER = 50
+UPDATE_STATUS_AFTER = 1000
 Base = declarative_base()
 
+DEBUG = True
+
+if DEBUG:
+    import logging
+    logger = logging.getLogger('crawler_logger')
+else:
+    import airbrake
+    logger = airbrake.getLogger(api_key='8361ef91f26e6e6a5187c8820c339f67', project_id=115420)
 
 class DatetimeTimestamp(TypeDecorator):
 
@@ -170,6 +178,7 @@ class SQLiteBackend(Backend):
         if status:
             db_page.status_code = status
         db_page.error = error
+        logger.exception("Error {error} on url {url}".format(error=error, url=request.url))
         self.session.commit()
 
     def _create_page(self, obj):
