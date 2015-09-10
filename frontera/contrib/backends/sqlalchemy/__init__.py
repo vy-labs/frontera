@@ -20,14 +20,14 @@ DEFAULT_CLEAR_CONTENT = False
 UPDATE_STATUS_AFTER = 1000
 Base = declarative_base()
 
-DEBUG = False if os.environ.get("env", 'DEBUG') == 'PRODUCTION' else True
-
-if DEBUG:
-    import logging
-    logger = logging.getLogger('crawler_logger')
-else:
-    import airbrake
-    logger = airbrake.getLogger(api_key='8361ef91f26e6e6a5187c8820c339f67', project_id=115420)
+# DEBUG = False if os.environ.get("env", 'DEBUG') == 'PRODUCTION' else True
+#
+# if DEBUG:
+#     import logging
+#     logger = logging.getLogger('crawler_logger')
+# else:
+#     import airbrake
+#     logger = airbrake.getLogger(api_key='8361ef91f26e6e6a5187c8820c339f67', project_id=115420)
 
 class DatetimeTimestamp(TypeDecorator):
 
