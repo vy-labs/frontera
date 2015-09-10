@@ -179,7 +179,6 @@ class SQLiteBackend(Backend):
         if status:
             db_page.status_code = status
         db_page.error = error
-        logger.exception("Error {error} on url {url}".format(error=error, url=request.url))
         self.session.commit()
 
     def _create_page(self, obj):
