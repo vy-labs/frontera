@@ -101,6 +101,9 @@ class SQLiteBackend(Backend):
         self.spider_args = settings.attributes.get('spider_settings', {}).get('args', [])
         self.spider_kwargs = settings.attributes.get('spider_settings', {}).get('kwargs', {})
 
+        self.retry_errors = self.spider_kwargs.get('retry_errors', None)
+        self.retry_queued = self.spider_kwargs.get('retry_queued', None)
+
         # Get settings
         engine = settings.get('SQLALCHEMYBACKEND_ENGINE', DEFAULT_ENGINE)
         engine_echo = settings.get('SQLALCHEMYBACKEND_ENGINE_ECHO', DEFAULT_ENGINE_ECHO)
@@ -144,7 +147,14 @@ class SQLiteBackend(Backend):
 
     def get_next_requests(self, max_next_requests, **kwargs):
         query = self.page_model.query(self.session).with_lockmode('update')
-        query = query.filter(self.page_model.state == PageMixin.State.NOT_CRAWLED)
+
+        if self.retry_errors:
+            query = query.filter(self.page_model.state == PageMixin.State.ERROR)
+        elif self.retry_queued:
+            query = query.filter(self.page_model.state == PageMixin.State.QUEUED)
+        else:
+            query = query.filter(self.page_model.state == PageMixin.State.NOT_CRAWLED)
+
         query = self._get_order_by(query)
         if max_next_requests:
             query = query.limit(max_next_requests)
