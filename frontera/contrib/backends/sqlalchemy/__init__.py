@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 import datetime
 import os
+from sqlalchemy.exc import IntegrityError
 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine
@@ -17,17 +18,17 @@ DEFAULT_ENGINE = 'sqlite:///:memory:'
 DEFAULT_ENGINE_ECHO = False
 DEFAULT_DROP_ALL_TABLES = False
 DEFAULT_CLEAR_CONTENT = False
-UPDATE_STATUS_AFTER = 1000
 Base = declarative_base()
 
-# DEBUG = False if os.environ.get("env", 'DEBUG') == 'PRODUCTION' else True
-#
-# if DEBUG:
-#     import logging
-#     logger = logging.getLogger('crawler_logger')
-# else:
-#     import airbrake
-#     logger = airbrake.getLogger(api_key='8361ef91f26e6e6a5187c8820c339f67', project_id=115420)
+DEBUG = False if os.environ.get("env", 'DEBUG') == 'PRODUCTION' else True
+
+if DEBUG:
+    import logging
+    logger = logging.getLogger('frontera_logger')
+else:
+    import airbrake
+    logger = airbrake.getLogger(api_key='8361ef91f26e6e6a5187c8820c339f67', project_id=115420)
+
 
 class DatetimeTimestamp(TypeDecorator):
 
@@ -136,9 +137,10 @@ class SQLiteBackend(Backend):
         pass
 
     def frontier_stop(self):
-        query = self.page_model.query(self.session).filter(self.page_model.state == Page.State.QUEUED)
+        query = self.page_model.query(self.session)\
+            .filter(self.page_model.state == self.page_model.State.QUEUED)
         for db_page in query:
-            db_page.state = Page.State.NOT_CRAWLED
+            db_page.state = self.page_model.State.NOT_CRAWLED
         self.session.commit()
         self.session.close()
         self.engine.dispose()
@@ -164,8 +166,9 @@ class SQLiteBackend(Backend):
         next_pages = []
         for db_page in query:
             db_page.state = PageMixin.State.QUEUED
-            request = self.manager.request_model(url=db_page.url, meta=db_page.meta, headers=db_page.headers,
-                                                 cookies=db_page.cookies, method=db_page.method, body=db_page.body)
+            request = self.manager.request_model(url=db_page.url, meta=db_page.meta,
+                                                 headers=db_page.headers, cookies=db_page
+                                                 .cookies, method=db_page.method, body=db_page.body)
             next_pages.append(request)
         self.session.commit()
         return next_pages
@@ -178,12 +181,7 @@ class SQLiteBackend(Backend):
             db_page_from_link, created = self._get_or_create_db_page(link)
             if created:
                 db_page_from_link.depth = db_page.depth+1
-            self.pages_crawled_in_current_batch += 1
-
-        if self.pages_crawled_in_current_batch and self.pages_crawled_in_current_batch > \
-                UPDATE_STATUS_AFTER:
-            self.session.commit()
-            self.pages_crawled_in_current_batch = 0
+        self.session.commit()
 
     def request_error(self, request, error):
         db_page, _ = self._get_or_create_db_page(request)
@@ -214,11 +212,19 @@ class SQLiteBackend(Backend):
     def _get_or_create_db_page(self, obj):
         if not self._request_exists(obj.meta['fingerprint']):
             db_page = self._create_page(obj)
-            self.session.add(db_page)
-            self.manager.logger.backend.debug('Creating request %s' % db_page)
+            session = self.Session()
+            try:
+                session.add(db_page)
+                session.commit()
+                self.manager.logger.backend.debug('Creating request %s' % db_page)
+            except IntegrityError:
+                session.rollback()
+                logger.warn("Integrity error for fingerprint {}".format(obj.url))
+            session.close()
             return db_page, True
         else:
-            db_page = self.page_model.query(self.session).filter_by(fingerprint=obj.meta['fingerprint']).first()
+            db_page = self.page_model.query(self.session)\
+                .filter_by(fingerprint=obj.meta['fingerprint']).first()
             self.manager.logger.backend.debug('Request exists %s' % db_page)
             return db_page, False
 
