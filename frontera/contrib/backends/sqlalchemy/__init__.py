@@ -9,6 +9,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.types import TypeDecorator
 from sqlalchemy import Column, String, Integer, PickleType
 from sqlalchemy import UniqueConstraint
+from sqlalchemy import or_
 
 from frontera import Backend
 from frontera.core.models import Response as frontera_response
@@ -150,11 +151,11 @@ class SQLiteBackend(Backend):
         query = self.page_model.query(self.session).with_lockmode('update')
 
         if self.retry_errors:
-            query = query.filter(self.page_model.state == PageMixin.State.ERROR)
+            query = query.filter(or_(self.page_model.state == PageMixin.State.ERROR, self.page_model.state == PageMixin.State.NOT_CRAWLED))
         elif self.retry_queued:
-            query = query.filter(self.page_model.state == PageMixin.State.QUEUED)
-
-        query = query.filter(self.page_model.state == PageMixin.State.NOT_CRAWLED)
+            query = query.filter(or_(self.page_model.state == PageMixin.State.QUEUED, self.page_model.state == PageMixin.State.NOT_CRAWLED))
+        else:
+            query = query.filter(self.page_model.state == PageMixin.State.NOT_CRAWLED)
 
         query = self._get_order_by(query)
         if max_next_requests:
