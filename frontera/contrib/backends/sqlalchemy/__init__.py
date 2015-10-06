@@ -137,10 +137,6 @@ class SQLiteBackend(Backend):
         pass
 
     def frontier_stop(self):
-        query = self.page_model.query(self.session)\
-            .filter(self.page_model.state == self.page_model.State.QUEUED)
-        for db_page in query:
-            db_page.state = self.page_model.State.NOT_CRAWLED
         self.session.commit()
         self.session.close()
         self.engine.dispose()
@@ -157,8 +153,8 @@ class SQLiteBackend(Backend):
             query = query.filter(self.page_model.state == PageMixin.State.ERROR)
         elif self.retry_queued:
             query = query.filter(self.page_model.state == PageMixin.State.QUEUED)
-        else:
-            query = query.filter(self.page_model.state == PageMixin.State.NOT_CRAWLED)
+
+        query = query.filter(self.page_model.state == PageMixin.State.NOT_CRAWLED)
 
         query = self._get_order_by(query)
         if max_next_requests:

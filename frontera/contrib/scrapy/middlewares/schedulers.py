@@ -25,7 +25,7 @@ class SchedulerSpiderMiddleware(BaseSchedulerMiddleware):
 
 class SchedulerDownloaderMiddleware(BaseSchedulerMiddleware):
     def process_response(self, request, response, spider):
-        if response.status not in xrange(200,303):
+        if response.status not in xrange(200, 303):
             error_msg = "Unhandled http status {0}, Response {1}".format(response.status, response)
             request.meta['error_status'] = response.status
             self.scheduler.process_exception(request, HttpError(error_msg), spider)
