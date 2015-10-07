@@ -1,6 +1,6 @@
 from scrapy.core.scheduler import Scheduler
 from scrapy.http import Request
-from scrapy import log
+from logging import getLogger
 
 from collections import deque
 from time import time
@@ -79,6 +79,7 @@ class FronteraScheduler(Scheduler):
         self._delay_next_call = 0.0
         self.frontier = None
         self._delay_on_empty = None
+        self.logger = getLogger('frontera.contrib.scrapy.schedulers.FronteraScheduler')
 
     @classmethod
     def from_crawler(cls, crawler):
@@ -129,12 +130,12 @@ class FronteraScheduler(Scheduler):
         self._delay_on_empty = self.frontier.manager.settings.get('DELAY_ON_EMPTY')
 
         self.frontier.set_spider(spider)
-        log.msg('Starting frontier', log.INFO)
+        self.logger.info("Starting frontier")
         if not self.frontier.manager.auto_start:
             self.frontier.start()
 
     def close(self, reason):
-        log.msg('Finishing frontier (%s)' % reason, log.INFO)
+        self.logger.info("Finishing frontier (%s)", reason)
         self.frontier.stop()
         self.stats_manager.set_iterations(self.frontier.manager.iteration)
         self.stats_manager.set_pending_requests(len(self))
