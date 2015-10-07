@@ -171,9 +171,12 @@ class SQLiteBackend(Backend):
         return next_pages
 
     def page_crawled(self, response, links):
-        db_page, _ = self._get_or_create_db_page(response)
+        db_page, created = self._get_or_create_db_page(response)
         db_page.state = PageMixin.State.CRAWLED
         db_page.status_code = response.status_code
+        if created:
+            db_page.depth = 0
+
         for link in links:
             db_page_from_link, created = self._get_or_create_db_page(link)
             if created:
