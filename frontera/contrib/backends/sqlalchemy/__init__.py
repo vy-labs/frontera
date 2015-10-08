@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 import datetime
-import os
+import os, time
+from airbrake.notifier import Airbrake
 from sqlalchemy.exc import IntegrityError
 
 from sqlalchemy.ext.declarative import declarative_base
@@ -9,12 +10,15 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.types import TypeDecorator
 from sqlalchemy import Column, String, Integer, PickleType
 from sqlalchemy import UniqueConstraint
-from sqlalchemy import or_
+from sqlalchemy import or_, and_
 
 from frontera import Backend
 from frontera.core.models import Response as frontera_response
 
 # Default settings
+from frontera.utils.misc import load_object
+from frontera.utils.url import canonicalize_url
+
 DEFAULT_ENGINE = 'sqlite:///:memory:'
 DEFAULT_ENGINE_ECHO = False
 DEFAULT_DROP_ALL_TABLES = False
@@ -22,13 +26,6 @@ DEFAULT_CLEAR_CONTENT = False
 Base = declarative_base()
 
 DEBUG = False if os.environ.get("env", 'DEBUG') == 'PRODUCTION' else True
-
-if DEBUG:
-    import logging
-    logger = logging.getLogger('frontera_logger')
-else:
-    import airbrake
-    logger = airbrake.getLogger(api_key='8361ef91f26e6e6a5187c8820c339f67', project_id=115420)
 
 
 class DatetimeTimestamp(TypeDecorator):
@@ -73,6 +70,7 @@ class PageMixin(object):
     cookies = Column(PickleType())
     method = Column(String(6))
     body = Column(PickleType())
+    retries = Column(Integer(), default=0)
 
     @classmethod
     def query(cls, session):
@@ -92,19 +90,23 @@ class SQLiteBackend(Backend):
         self.pages_crawled_in_current_batch = 0
         # Get settings
         settings = manager.settings
+        self.frontier = settings.attributes.get('spider_settings', {}).get('frontier')
 
         assert 'frontier' in settings.attributes.get('spider_settings', {}), "frontier missing in frontera settings"
 
         class Page(PageMixin, Base):
-            __tablename__ = settings.attributes.get('spider_settings', {}).get('frontier')
+            __tablename__ = self.frontier
 
         self.page_model = Page
 
         self.spider_args = settings.attributes.get('spider_settings', {}).get('args', [])
         self.spider_kwargs = settings.attributes.get('spider_settings', {}).get('kwargs', {})
+        self.airbrake = Airbrake(api_key=self.spider_kwargs['AIRBRAKE_API_KEY'], project_id=self.spider_kwargs['AIRBRAKE_PROJECT_ID'])
+        self.retry_times = self.spider_kwargs.get('RETRY_TIMES', 0)
+        self.retry_http_codes = self.spider_kwargs.get('RETRY_HTTP_CODES', [])
+        self.exceptions_to_retry = self.spider_kwargs.get('EXCEPTIONS_TO_RETRY', [])
 
-        self.retry_errors = self.spider_kwargs.get('retry_errors', None)
-        self.retry_queued = self.spider_kwargs.get('retry_queued', None)
+        self.new_scrape = self.spider_kwargs.get('new_scrape', False)
 
         # Get settings
         engine = settings.get('SQLALCHEMYBACKEND_ENGINE', DEFAULT_ENGINE)
@@ -115,20 +117,23 @@ class SQLiteBackend(Backend):
         # Create engine
         self.engine = create_engine(engine, echo=engine_echo)
 
+        if self.new_scrape:
+            connection = self.engine.connect()
+            connection.execute('DROP INDEX IF EXISTS ix_{}_fingerprint;'.format(self.frontier))
+            connection.execute('DROP INDEX IF EXISTS ix_{}_state;'.format(self.frontier))
+            connection.execute('ALTER TABLE IF EXISTS {} RENAME TO {}_{};'.format(self.frontier, self.frontier, int(time.time())))
+            connection.close()
+
         # Drop tables if we have to
         if drop_all_tables:
             Base.metadata.drop_all(self.engine)
+
         Base.metadata.create_all(self.engine)
 
         # Create session
         self.Session = sessionmaker()
         self.Session.configure(bind=self.engine)
         self.session = self.Session()
-
-        # Clear content if we have to
-        if clear_content:
-            for name, table in Base.metadata.tables.items():
-                self.session.execute(table.delete())
 
     @classmethod
     def from_manager(cls, manager):
@@ -142,6 +147,11 @@ class SQLiteBackend(Backend):
         self.session.close()
         self.engine.dispose()
 
+    def log(self, message, errtype=None, extra={}):
+        if not DEBUG:
+            self.airbrake.environment = self.frontier
+            self.airbrake.log(message, errtype=errtype, extra=extra)
+
     def add_seeds(self, seeds):
         for seed in seeds:
             db_page, _ = self._get_or_create_db_page(seed)
@@ -149,13 +159,12 @@ class SQLiteBackend(Backend):
 
     def get_next_requests(self, max_next_requests, **kwargs):
         query = self.page_model.query(self.session).with_lockmode('update')
-
-        if self.retry_errors:
-            query = query.filter(or_(self.page_model.state == PageMixin.State.ERROR, self.page_model.state == PageMixin.State.NOT_CRAWLED))
-        elif self.retry_queued:
-            query = query.filter(or_(self.page_model.state == PageMixin.State.QUEUED, self.page_model.state == PageMixin.State.NOT_CRAWLED))
-        else:
-            query = query.filter(self.page_model.state == PageMixin.State.NOT_CRAWLED)
+        query = query.filter(
+            or_(
+                and_(self.page_model.state == PageMixin.State.ERROR, self.page_model.error.in_(self.exceptions_to_retry), self.page_model.retries < self.retry_times).self_group(),
+                and_(self.page_model.state == PageMixin.State.ERROR, self.page_model.status_code.in_(self.retry_http_codes), self.page_model.retries < self.retry_times).self_group(),
+                and_(self.page_model.state == PageMixin.State.NOT_CRAWLED, self.page_model.retries < self.retry_times).self_group()
+            ))
 
         query = self._get_order_by(query)
         if max_next_requests:
@@ -167,6 +176,7 @@ class SQLiteBackend(Backend):
                                                  headers=db_page.headers, cookies=db_page
                                                  .cookies, method=db_page.method, body=db_page.body)
             next_pages.append(request)
+
         self.session.commit()
         return next_pages
 
@@ -174,8 +184,14 @@ class SQLiteBackend(Backend):
         db_page, created = self._get_or_create_db_page(response)
         db_page.state = PageMixin.State.CRAWLED
         db_page.status_code = response.status_code
-        if created:
-            db_page.depth = 0
+
+        redirected_urls = db_page.meta.get('scrapy_meta', {}).get('redirect_urls', [])
+        for url in redirected_urls:
+            self.fingerprint_function = load_object(self.manager.settings.get('URL_FINGERPRINT_FUNCTION'))
+            fingerprint = self.fingerprint_function(canonicalize_url(url))
+            redirected_page = self.page_model.query(self.session).filter_by(fingerprint=fingerprint).first()
+            if redirected_page:
+                redirected_page.state = self.page_model.State.CRAWLED
 
         for link in links:
             db_page_from_link, created = self._get_or_create_db_page(link)
@@ -190,6 +206,12 @@ class SQLiteBackend(Backend):
         if status:
             db_page.status_code = status
         db_page.error = error
+        db_page.retries += 1
+        db_page.meta = request.meta
+
+        if db_page.retries >= self.retry_times:
+            self.log(db_page.status_code, errtype=error)
+
         self.session.commit()
 
     def _create_page(self, obj):
@@ -199,28 +221,31 @@ class SQLiteBackend(Backend):
         db_page.url = obj.url
         db_page.created_at = datetime.datetime.utcnow()
         db_page.meta = obj.meta
+        db_page.depth = 0
+
         if not isinstance(obj, frontera_response):
             db_page.headers = obj.headers
             db_page.method = obj.method
             db_page.cookies = obj.cookies
             if obj.method.lower() == 'post':
                 db_page.body = obj.body
-            db_page.depth = 0
 
         return db_page
 
     def _get_or_create_db_page(self, obj):
         if not self._request_exists(obj.meta['fingerprint']):
             db_page = self._create_page(obj)
-            session = self.Session()
             try:
-                session.add(db_page)
-                session.commit()
+                self.session.add(db_page)
+                self.session.commit()
                 self.manager.logger.backend.debug('Creating request %s' % db_page)
-            except IntegrityError:
-                session.rollback()
-                logger.warn("Integrity error for fingerprint {}".format(obj.url))
-            session.close()
+            except IntegrityError as e:
+                self.session.rollback()
+                reason = e.message
+                if "Duplicate entry" in reason:
+                    self.manager.logger.backend.debug("Trying to write duplicate entry for url {}".format(obj.url))
+                else:
+                    raise e
             return db_page, True
         else:
             db_page = self.page_model.query(self.session)\
