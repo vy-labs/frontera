@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 import datetime
 import os, time
+import logging
 from airbrake.notifier import Airbrake
 from sqlalchemy.exc import IntegrityError
 
@@ -151,6 +152,9 @@ class SQLiteBackend(Backend):
         if not DEBUG:
             self.airbrake.environment = self.frontier
             self.airbrake.log(message, errtype=errtype, extra=extra)
+        else:
+            self.manager.logger.backend.debug('{}:{}'.format(errtype, message))
+            logging.exception('{}:{}'.format(errtype, message))
 
     def add_seeds(self, seeds):
         for seed in seeds:
@@ -245,6 +249,7 @@ class SQLiteBackend(Backend):
                 if "Duplicate entry" in reason:
                     self.manager.logger.backend.debug("Trying to write duplicate entry for url {}".format(obj.url))
                 else:
+                    self.log(e.message)
                     raise e
             return db_page, True
         else:
