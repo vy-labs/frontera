@@ -246,7 +246,7 @@ class SQLiteBackend(Backend):
             except IntegrityError as e:
                 self.session.rollback()
                 reason = e.message
-                if "Duplicate entry" in reason:
+                if "Duplicate entry" or "duplicate key" in reason:
                     self.manager.logger.backend.debug("Trying to write duplicate entry for url {}".format(obj.url))
                 else:
                     self.log(e.message)

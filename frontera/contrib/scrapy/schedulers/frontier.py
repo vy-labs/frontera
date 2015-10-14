@@ -110,7 +110,7 @@ class FronteraScheduler(Scheduler):
                     links.append(element)
                 else:
                     yield element
-        except Exception, e:
+        except Exception as e:
             self.process_exception(response.request, e, spider)
             raise e
 
