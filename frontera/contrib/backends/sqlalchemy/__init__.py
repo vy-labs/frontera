@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.sql.functions import func
 from sqlalchemy.types import TypeDecorator
 from sqlalchemy import Column, String, Integer, PickleType
 from sqlalchemy import UniqueConstraint
@@ -294,8 +295,17 @@ class BFSBackend(SQLiteBackend):
         return query.order_by(self.page_model.depth, self.page_model.created_at)
 
 
+class RandomBackend(SQLiteBackend):
+    component_name = 'SQLite Random Backend'
+
+    def _get_order_by(self, query):
+        return query.order_by(func.random())
+
+
+
 BASE = SQLiteBackend
 LIFO = LIFOBackend
 FIFO = FIFOBackend
 DFS = DFSBackend
 BFS = BFSBackend
+RANDOM = RandomBackend
