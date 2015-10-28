@@ -30,9 +30,9 @@ class SchedulerDownloaderMiddleware(BaseSchedulerMiddleware):
         if (response.status not in range(200, 303)) or (response.status in consider_status_code_as_error):
             error_msg = "Unhandled http status {0}, Response {1}".format(response.status, response)
             request.meta['error_status'] = response.status
-            #maybe shouldn't return response after logging erorr
+            # maybe shouldn't return response after logging erorr
             self.process_exception(request, HttpError(error_msg), spider)
-            raise IgnoreRequest
+            # raise IgnoreRequest
         return response
 
     def process_exception(self, request, exception, spider):
