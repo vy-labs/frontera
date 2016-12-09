@@ -32,7 +32,7 @@ class SchedulerDownloaderMiddleware(BaseSchedulerMiddleware):
             request.meta['error_status'] = response.status
             # maybe shouldn't return response after logging erorr
             self.process_exception(request, HttpError(error_msg), spider)
-            # raise IgnoreRequest
+            raise IgnoreRequest
         return response
 
     def process_exception(self, request, exception, spider):
