@@ -190,7 +190,7 @@ class SQLiteBackend(Backend):
         db_page.state = PageMixin.State.CRAWLED
         db_page.status_code = response.status_code
 
-        redirected_urls = db_page.meta.get('scrapy_meta', {}).get('redirect_urls', [])
+        redirected_urls = response.meta.get('scrapy_meta', {}).get('redirect_urls', [])
         for url in redirected_urls:
             self.fingerprint_function = load_object(self.manager.settings.get('URL_FINGERPRINT_FUNCTION'))
             fingerprint = self.fingerprint_function(canonicalize_url(url))

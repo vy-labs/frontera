@@ -77,6 +77,10 @@ class ResponseConverter(BaseResponseConverter):
         """response: Scrapy > Frontier"""
         frontier_request = scrapy_response.meta['frontier_request']
         frontier_request.meta['scrapy_meta'] = scrapy_response.meta
+
+        if b'redirect_urls' in scrapy_response.meta:
+            frontier_request.meta[b'redirect_urls'] = scrapy_response.meta[b'redirect_urls']
+
         del scrapy_response.meta['frontier_request']
         return FrontierResponse(url=scrapy_response.url,
                                 status_code=scrapy_response.status,
