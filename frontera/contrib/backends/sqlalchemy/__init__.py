@@ -13,6 +13,7 @@ from sqlalchemy.types import TypeDecorator
 from sqlalchemy import Column, String, Integer, PickleType
 from sqlalchemy import UniqueConstraint
 from sqlalchemy import or_, and_
+from sqlalchemy.dialects.postgresql import insert
 
 from frontera import Backend
 from frontera.core.models import Response as frontera_response
@@ -134,8 +135,8 @@ class SQLiteBackend(Backend):
         Base.metadata.create_all(self.engine)
 
         connection = self.engine.connect()
-        connection.execute('CREATE INDEX IF NOT EXISTS ix_{}_select_requests on {} '
-                           '(state, retries, error, status_code, created_at);'
+        connection.execute('CREATE INDEX IF NOT EXISTS ix_{}_select_requests on {}'
+                           ' (state, retries, error, status_code, created_at);'
                            .format(self.frontier, self.frontier))
         connection.close()
         # Create session
@@ -247,17 +248,17 @@ class SQLiteBackend(Backend):
         if not self._request_exists(obj.meta['fingerprint']):
             db_page = self._create_page(obj)
             try:
-                self.session.add(db_page)
+                #on conflict do nothing support postgres 9.6
+                values = db_page.__dict__.copy()
+                del values['_sa_instance_state']
+                insert_stmt = insert(self.page_model).values(**values)
+                do_nothing_stmt = insert_stmt.on_conflict_do_nothing(index_elements=['fingerprint'])
+                self.session.execute(do_nothing_stmt)
                 self.session.commit()
                 self.manager.logger.backend.debug('Creating request %s' % db_page)
             except IntegrityError as e:
-                self.session.rollback()
-                reason = e.message
-                if "Duplicate entry" or "duplicate key" in reason:
-                    self.manager.logger.backend.debug("Trying to write duplicate entry for url {}".format(obj.url))
-                else:
-                    self.log(e.message)
-                    raise e
+                self.log(e.message)
+                raise e
             return db_page, True
         else:
             db_page = self.page_model.query(self.session)\
