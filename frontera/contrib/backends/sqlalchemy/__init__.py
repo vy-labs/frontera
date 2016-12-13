@@ -123,6 +123,7 @@ class SQLiteBackend(Backend):
             connection = self.engine.connect()
             connection.execute('DROP INDEX IF EXISTS ix_{}_fingerprint;'.format(self.frontier))
             connection.execute('DROP INDEX IF EXISTS ix_{}_state;'.format(self.frontier))
+            connection.execute('DROP INDEX IF EXISTS ix_{}_select_requests;'.format(self.frontier))
             connection.execute('ALTER TABLE IF EXISTS {} RENAME TO {}_{};'.format(self.frontier, self.frontier, int(time.time())))
             connection.close()
 
@@ -132,6 +133,11 @@ class SQLiteBackend(Backend):
 
         Base.metadata.create_all(self.engine)
 
+        connection = self.engine.connect()
+        connection.execute('CREATE INDEX IF NOT EXISTS ix_{}_select_requests on {} '
+                           '(state, retries, error, status_code, created_at);'
+                           .format(self.frontier, self.frontier))
+        connection.close()
         # Create session
         self.Session = sessionmaker()
         self.Session.configure(bind=self.engine)
