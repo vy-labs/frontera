@@ -94,6 +94,7 @@ class SQLiteBackend(Backend):
         # Get settings
         settings = manager.settings
         self.frontier = settings.attributes.get('spider_settings', {}).get('frontier')
+        self.keep_crawled = settings.attributes.get('spider_settings', {}).get('keep_crawled', True)
 
         assert 'frontier' in settings.attributes.get('spider_settings', {}), "frontier missing in frontera settings"
 
@@ -170,13 +171,16 @@ class SQLiteBackend(Backend):
         self.session.commit()
 
     def get_next_requests(self, max_next_requests, **kwargs):
-        query = self.page_model.query(self.session).with_lockmode('update')
-        query = query.filter(
+        query = self.page_model.query(self.session).filter(
             or_(
-                and_(self.page_model.state == PageMixin.State.ERROR, self.page_model.error.in_(self.exceptions_to_retry), self.page_model.retries < self.retry_times).self_group(),
-                and_(self.page_model.state == PageMixin.State.ERROR, self.page_model.status_code.in_(self.retry_http_codes), self.page_model.retries < self.retry_times).self_group(),
-                and_(self.page_model.state == PageMixin.State.NOT_CRAWLED, self.page_model.retries < self.retry_times).self_group()
-            ))
+                and_(self.page_model.state == PageMixin.State.ERROR,
+                     self.page_model.error.in_(self.exceptions_to_retry),
+                     self.page_model.retries < self.retry_times).self_group(),
+                and_(self.page_model.state == PageMixin.State.ERROR,
+                     self.page_model.status_code.in_(self.retry_http_codes),
+                     self.page_model.retries < self.retry_times).self_group(),
+                and_(self.page_model.state == PageMixin.State.NOT_CRAWLED,
+                     self.page_model.retries < self.retry_times).self_group())).with_lockmode('update')
 
         query = self._get_order_by(query)
         if max_next_requests:
@@ -193,9 +197,13 @@ class SQLiteBackend(Backend):
         return next_pages
 
     def page_crawled(self, response, links):
-        db_page, created = self._get_or_create_db_page(response)
-        db_page.state = PageMixin.State.CRAWLED
-        db_page.status_code = response.status_code
+        db_page, _ = self._get_or_create_db_page(response)
+        depth = db_page.depth
+        if self.keep_crawled:
+            db_page.state = PageMixin.State.CRAWLED
+            db_page.status_code = response.status_code
+        else:
+            self.session.delete(db_page)
 
         redirected_urls = response.meta.get('scrapy_meta', {}).get('redirect_urls', [])
         for url in redirected_urls:
@@ -203,12 +211,16 @@ class SQLiteBackend(Backend):
             fingerprint = self.fingerprint_function(canonicalize_url(url))
             redirected_page = self.page_model.query(self.session).filter_by(fingerprint=fingerprint).first()
             if redirected_page:
-                redirected_page.state = self.page_model.State.CRAWLED
+                if self.keep_crawled:
+                    redirected_page.state = self.page_model.State.CRAWLED
+                else:
+                    self.session.delete(redirected_page)
 
         for link in links:
             db_page_from_link, created = self._get_or_create_db_page(link)
             if created:
-                db_page_from_link.depth = db_page.depth+1
+                db_page_from_link.depth = depth+1
+
         self.session.commit()
 
     def request_error(self, request, error):
