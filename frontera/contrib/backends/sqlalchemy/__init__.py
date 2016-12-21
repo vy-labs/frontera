@@ -206,9 +206,9 @@ class SQLiteBackend(Backend):
             try:
                 self.session.delete(db_page)
             except InvalidRequestError as e:
-                db_page = self.page_model.query(self.session).filter_by(fingerprint=db_page.fingerprint).first()
-                if db_page:
-                    self.session.delete(db_page)
+                page = self.page_model.query(self.session).filter_by(fingerprint=db_page.fingerprint).first()
+                if page:
+                    self.session.delete(page)
                     self.session.commit()
                 self.log(e.message + db_page.url)
 
