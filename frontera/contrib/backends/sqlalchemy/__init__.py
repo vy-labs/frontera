@@ -3,7 +3,7 @@ import datetime
 import os, time
 import logging
 from airbrake.notifier import Airbrake
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, InvalidRequestError
 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine
@@ -203,7 +203,14 @@ class SQLiteBackend(Backend):
             db_page.state = PageMixin.State.CRAWLED
             db_page.status_code = response.status_code
         else:
-            self.session.delete(db_page)
+            try:
+                self.session.delete(db_page)
+            except InvalidRequestError as e:
+                db_page = self.page_model.query(self.session).filter_by(fingerprint=db_page.fingerprint).first()
+                if db_page:
+                    self.session.delete(db_page)
+                    self.session.commit()
+                self.log(e.message + db_page.url)
 
         redirected_urls = response.meta.get('scrapy_meta', {}).get('redirect_urls', [])
         for url in redirected_urls:
