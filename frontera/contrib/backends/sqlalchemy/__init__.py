@@ -198,18 +198,18 @@ class SQLiteBackend(Backend):
 
     def page_crawled(self, response, links):
         db_page, _ = self._get_or_create_db_page(response)
-        depth = db_page.depth
-        db_page.state = PageMixin.State.CRAWLED
-        db_page.status_code = response.status_code
+
+        if db_page:
+            db_page.state = PageMixin.State.CRAWLED
+            db_page.status_code = response.status_code
+
+        depth = db_page.depth if db_page else 0
 
         if not self.keep_crawled:
             try:
                 self.session.delete(db_page)
+                self.session.commit()
             except InvalidRequestError as e:
-                page = self.page_model.query(self.session).filter_by(fingerprint=db_page.fingerprint).first()
-                if page:
-                    self.session.delete(page)
-                    self.session.commit()
                 self.log(e.message + db_page.url)
 
         redirected_urls = response.meta.get('scrapy_meta', {}).get('redirect_urls', [])
