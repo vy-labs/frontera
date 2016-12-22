@@ -199,10 +199,10 @@ class SQLiteBackend(Backend):
     def page_crawled(self, response, links):
         db_page, _ = self._get_or_create_db_page(response)
         depth = db_page.depth
-        if self.keep_crawled:
-            db_page.state = PageMixin.State.CRAWLED
-            db_page.status_code = response.status_code
-        else:
+        db_page.state = PageMixin.State.CRAWLED
+        db_page.status_code = response.status_code
+
+        if not self.keep_crawled:
             try:
                 self.session.delete(db_page)
             except InvalidRequestError as e:
@@ -234,16 +234,18 @@ class SQLiteBackend(Backend):
         db_page, _ = self._get_or_create_db_page(request)
         db_page.state = PageMixin.State.ERROR
         status = request.meta.get('scrapy_meta', {}).get('error_status', None)
+        db_page.method = request.method
+        db_page.headers = request.headers
+        db_page.cookies = request.cookies
         if status:
             db_page.status_code = status
         db_page.error = error
         db_page.retries += 1
         db_page.meta = request.meta
+        self.session.commit()
 
         if db_page.retries >= self.retry_times:
             self.log(db_page.status_code, errtype=error)
-
-        self.session.commit()
 
     def _create_page(self, obj):
         db_page = self.page_model()
