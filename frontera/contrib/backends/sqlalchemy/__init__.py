@@ -208,9 +208,8 @@ class SQLiteBackend(Backend):
         if not self.keep_crawled:
             try:
                 self.session.delete(db_page)
-                self.session.commit()
             except InvalidRequestError as e:
-                self.log(e.message + db_page.url)
+                print e.message
 
         redirected_urls = response.meta.get('scrapy_meta', {}).get('redirect_urls', [])
         for url in redirected_urls:
@@ -262,6 +261,14 @@ class SQLiteBackend(Backend):
             db_page.cookies = obj.cookies
             if obj.method.lower() == 'post':
                 db_page.body = obj.body
+        else:
+            db_page.method = obj.request.method
+            db_page.headers = obj.request.headers
+            db_page.cookies = obj.request.cookies
+
+            if obj.request.method.lower() == 'post':
+                db_page.body = obj.request.body
+            db_page.state = PageMixin.State.CRAWLED
 
         return db_page
 
