@@ -46,7 +46,7 @@ class DatetimeTimestamp(TypeDecorator):
 
 class PageMixin(object):
     __table_args__ = (
-        UniqueConstraint('url'),
+        UniqueConstraint('fingerprint'),
         {
             'mysql_charset': 'utf8',
             'mysql_engine': 'InnoDB',
