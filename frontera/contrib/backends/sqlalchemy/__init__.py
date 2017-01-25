@@ -254,6 +254,7 @@ class SQLiteBackend(Backend):
         db_page.created_at = datetime.datetime.utcnow()
         db_page.meta = obj.meta
         db_page.depth = 0
+        db_page.retries = 0
 
         if not isinstance(obj, frontera_response):
             db_page.headers = obj.headers
