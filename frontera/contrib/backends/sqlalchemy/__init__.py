@@ -16,10 +16,8 @@ from sqlalchemy import or_, and_
 from sqlalchemy.dialects.postgresql import insert
 
 from frontera import Backend
-from frontera.core.models import Response as frontera_response, Request as frontera_request
+from frontera.core.models import Response as frontera_response
 
-# Default settings
-from frontera.utils.misc import load_object
 
 DEFAULT_ENGINE = 'sqlite:///:memory:'
 DEFAULT_ENGINE_ECHO = False
@@ -210,10 +208,8 @@ class SQLiteBackend(Backend):
             except InvalidRequestError as e:
                 print e.message
 
-        redirected_urls = response.meta.get('scrapy_meta', {}).get('redirect_urls', [])
-        for url in redirected_urls:
-            self.fingerprint_function = load_object(self.manager.settings.get('REQUEST_FINGERPRINT_FUNCTION'))
-            fingerprint = self.fingerprint_function(frontera_request(url))
+        redirect_fingerprints = response.meta.get('redirect_fingerprints', [])
+        for fingerprint in redirect_fingerprints:
             redirected_page = self.page_model.query(self.session).filter_by(fingerprint=fingerprint).first()
             if redirected_page:
                 if self.keep_crawled:
