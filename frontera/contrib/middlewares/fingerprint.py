@@ -1,4 +1,5 @@
 from frontera.core.components import Middleware
+from frontera.core.models import Request
 from frontera.exceptions import NotConfigured
 from frontera.utils.url import canonicalize_url
 from frontera.utils.misc import load_object
@@ -111,4 +112,20 @@ class DomainFingerprintMiddleware(BaseFingerprintMiddleware):
         if 'redirect_domains' in obj.meta:
             for domain in obj.meta['redirect_domains']:
                 domain['fingerprint'] = self.fingerprint_function(domain['name'])
+        return obj
+
+
+class RequestFingerprintMiddleware(BaseFingerprintMiddleware):
+
+    component_name = 'Request Fingerprint Middleware'
+    fingerprint_function_name = 'REQUEST_FINGERPRINT_FUNCTION'
+
+    def _get_fingerprint(self, url):
+        return self.fingerprint_function(Request(url))
+
+    def _add_fingerprint(self, obj):
+        request = obj if isinstance(obj, Request) else obj.request
+        obj.meta['fingerprint'] = self.fingerprint_function(request)
+        if 'redirect_urls' in obj.meta:
+            obj.meta['redirect_fingerprints'] = [self._get_fingerprint(url) for url in obj.meta['redirect_urls']]
         return obj

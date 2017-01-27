@@ -6,7 +6,8 @@ import logging
 REQUEST_MODEL = 'frontera.core.models.Request'
 RESPONSE_MODEL = 'frontera.core.models.Response'
 MIDDLEWARES = [
-    'frontera.contrib.middlewares.fingerprint.UrlFingerprintMiddleware',
+    # 'frontera.contrib.middlewares.fingerprint.UrlFingerprintMiddleware',
+    'frontera.contrib.middlewares.fingerprint.RequestFingerprintMiddleware'
 ]
 BACKEND = 'frontera.contrib.backends.memory.FIFO'
 CANONICAL_SOLVER = 'frontera.contrib.canonicalsolvers.Basic'
@@ -22,6 +23,7 @@ DELAY_ON_EMPTY = 0.0
 #--------------------------------------------------------
 URL_FINGERPRINT_FUNCTION = 'frontera.utils.fingerprint.sha1'
 DOMAIN_FINGERPRINT_FUNCTION = 'frontera.utils.fingerprint.sha1'
+REQUEST_FINGERPRINT_FUNCTION = 'frontera.utils.fingerprint.request_fingerprint'
 
 #--------------------------------------------------------
 # Logging

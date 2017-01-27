@@ -37,7 +37,7 @@ setup(
     ],
     install_requires=[
         'six>=1.8.0',
-        'w3lib>=1.10.0',
+        'w3lib>=1.16.0',
         'tldextract>=1.5.1',
         'SQLAlchemy>=1.1.4'
     ],
