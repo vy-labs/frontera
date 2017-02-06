@@ -108,8 +108,7 @@ class FronteraScheduler(Scheduler):
             for element in result:
                 if isinstance(element, Request):
                     links.append(element)
-                else:
-                    yield element
+                yield element
         except Exception as e:
             self.process_exception(response.request, e, spider)
             raise e
