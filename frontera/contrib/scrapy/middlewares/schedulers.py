@@ -1,5 +1,10 @@
+import logging
+
 from scrapy.exceptions import IgnoreRequest
 from scrapy.spidermiddlewares.httperror import HttpError
+
+
+logger = logging.getLogger(__name__)
 
 
 class BaseSchedulerMiddleware(object):
@@ -27,9 +32,15 @@ class SchedulerSpiderMiddleware(BaseSchedulerMiddleware):
 class SchedulerDownloaderMiddleware(BaseSchedulerMiddleware):
     def process_response(self, request, response, spider):
         consider_status_code_as_error = getattr(spider, 'consider_status_code_as_error', [])
-        if (response.status not in range(200, 303)) or (response.status in consider_status_code_as_error):
-            error_msg = "Unhandled http status {0}, Response {1}".format(response.status, response)
-            request.meta['error_status'] = response.status
+        handle_httpstatus_list = getattr(spider, 'handle_httpstatus_list', []) or \
+                                 request.meta.get('handle_httpstatus_list', [])
+        status_code = response.status
+        if ((status_code not in range(200, 303)) or
+                (status_code in consider_status_code_as_error)) \
+                and status_code not in handle_httpstatus_list:
+            error_msg = "Unhandled http status {0}, Response {1}".format(status_code, response)
+            request.meta['error_status'] = status_code
+            logger.debug('adding request to request_error: Got status code: %d' % status_code)
             # maybe shouldn't return response after logging erorr
             self.process_exception(request, HttpError(error_msg), spider)
             raise IgnoreRequest
