@@ -50,6 +50,7 @@ class SchedulerDownloaderMiddleware(BaseSchedulerMiddleware):
             logger.debug('adding request to request_error: Got status code: %d' % status_code)
             # maybe shouldn't return response after logging erorr
             self.process_exception(request, HttpError(error_msg), spider)
+            response.request = request
             raise IgnoreRequest(response=response)
         return response
 
