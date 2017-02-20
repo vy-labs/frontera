@@ -1,10 +1,17 @@
 import logging
 
-from scrapy.exceptions import IgnoreRequest
+from scrapy.exceptions import IgnoreRequest as _IgnoreRequest
 from scrapy.spidermiddlewares.httperror import HttpError
 
 
 logger = logging.getLogger(__name__)
+
+
+class IgnoreRequest(_IgnoreRequest):
+
+    def __init__(self, *args, **kwargs):
+        self.response = kwargs.pop('response')
+        super(IgnoreRequest, self).__init__(*args, **kwargs)
 
 
 class BaseSchedulerMiddleware(object):
@@ -43,7 +50,7 @@ class SchedulerDownloaderMiddleware(BaseSchedulerMiddleware):
             logger.debug('adding request to request_error: Got status code: %d' % status_code)
             # maybe shouldn't return response after logging erorr
             self.process_exception(request, HttpError(error_msg), spider)
-            raise IgnoreRequest
+            raise IgnoreRequest(response=response)
         return response
 
     def process_exception(self, request, exception, spider):
