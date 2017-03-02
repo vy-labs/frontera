@@ -3,6 +3,7 @@ import logging
 from scrapy.exceptions import IgnoreRequest as _IgnoreRequest
 from scrapy.spidermiddlewares.httperror import HttpError
 
+from frontera.utils.misc import load_object
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +53,15 @@ class SchedulerDownloaderMiddleware(BaseSchedulerMiddleware):
             self.process_exception(request, HttpError(error_msg), spider)
             response.request = request
             raise IgnoreRequest(response=response)
+        self._handle_redirect(response)
         return response
 
     def process_exception(self, request, exception, spider):
         return self.scheduler.process_exception(request, exception, spider)
+
+    def _handle_redirect(self, response):
+        allowed_status = (301, 302, 303, 307)
+        if 'Location' in response.headers and response.status in allowed_status:
+            fingerprint_function = load_object(self.scheduler.frontier.manager.settings.REQUEST_FINGERPRINT_FUNCTION)
+            response.meta['frontier_request'].meta.setdefault(
+                'redirect_fingerprints', []).append(fingerprint_function(response.request))
