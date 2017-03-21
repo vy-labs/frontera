@@ -3,17 +3,17 @@ import datetime
 import os, time
 import logging
 from airbrake.notifier import Airbrake
-from sqlalchemy.exc import IntegrityError, InvalidRequestError
+from sqlalchemy.exc import IntegrityError, InvalidRequestError, OperationalError
 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.sql.expression import insert
 from sqlalchemy.sql.functions import func
 from sqlalchemy.types import TypeDecorator
 from sqlalchemy import Column, String, Integer, PickleType
 from sqlalchemy import UniqueConstraint
 from sqlalchemy import or_, and_
-from sqlalchemy.dialects.postgresql import insert
 
 from frontera import Backend
 from frontera.core.models import Response as frontera_response
@@ -46,9 +46,9 @@ class PageMixin(object):
     __table_args__ = (
         UniqueConstraint('fingerprint'),
         {
-            'mysql_charset': 'utf8',
+            'mysql_charset': 'utf8mb4',
             'mysql_engine': 'InnoDB',
-            'mysql_row_format': 'DYNAMIC',
+            'mysql_row_format': 'DYNAMIC'
         },
     )
 
@@ -59,7 +59,7 @@ class PageMixin(object):
         ERROR = 'ERROR'
 
     url = Column(String(1024), nullable=False)
-    fingerprint = Column(String(40), primary_key=True, nullable=False, index=True, unique=True)
+    fingerprint = Column(String(40), primary_key=True, nullable=False, index=True)
     depth = Column(Integer, nullable=False)
     created_at = Column(DatetimeTimestamp(20), nullable=False)
     status_code = Column(String(20))
@@ -84,6 +84,18 @@ class SQLiteBackend(Backend):
     component_name = 'SQLite Backend'
     spider_args = []
     spider_kwargs = {}
+
+    def try_execute(self, query, connection):
+        try:
+            connection.execute(query)
+        except OperationalError as e:
+            if "Duplicate key name" in e.message:
+                pass
+            elif "key exists" in e.message:
+                pass
+            else:
+                raise e
+
 
     def __init__(self, manager):
         self.manager = manager
@@ -119,12 +131,13 @@ class SQLiteBackend(Backend):
         self.engine = create_engine(engine, echo=engine_echo)
 
         if self.new_scrape:
-            connection = self.engine.connect()
-            connection.execute('DROP INDEX IF EXISTS ix_{}_fingerprint;'.format(self.frontier))
-            connection.execute('DROP INDEX IF EXISTS ix_{}_state;'.format(self.frontier))
-            connection.execute('DROP INDEX IF EXISTS ix_{}_select_requests;'.format(self.frontier))
-            connection.execute('ALTER TABLE IF EXISTS "{}" RENAME TO "{}_{}";'.format(self.frontier, self.frontier, int(time.time())))
-            connection.close()
+            if self.engine.dialect.has_table(self.engine, self.frontier):
+                connection = self.engine.connect()
+                self.try_execute('DROP INDEX ix_{}_fingerprint on `{}`;'.format(self.frontier, self.frontier), connection)
+                self.try_execute('DROP INDEX ix_{}_state on `{}`;'.format(self.frontier, self.frontier), connection)
+                self.try_execute('DROP INDEX ix_{}_select_requests on `{}`;'.format(self.frontier, self.frontier), connection)
+                self.try_execute('ALTER TABLE `{}` RENAME TO `{}_{}`;'.format(self.frontier, self.frontier, int(time.time())), connection)
+                connection.close()
 
         # Drop tables if we have to
         if drop_all_tables:
@@ -133,9 +146,10 @@ class SQLiteBackend(Backend):
         Base.metadata.create_all(self.engine)
 
         connection = self.engine.connect()
-        connection.execute('CREATE INDEX IF NOT EXISTS ix_{}_select_requests on "{}"'
-                           ' (state, retries, error, status_code, created_at);'
-                           .format(self.frontier, self.frontier))
+        self.try_execute('CREATE INDEX ix_{}_select_requests on `{}` (state, retries, error, status_code, created_at);'
+                         .format(self.frontier, self.frontier), connection)
+        connection.execute("SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'")
+        connection.execute("SET character_set_client = 'utf8mb4'")
         connection.close()
         # Create session
         self.Session = sessionmaker()
@@ -275,9 +289,8 @@ class SQLiteBackend(Backend):
                 #on conflict do nothing support postgres 9.6
                 values = db_page.__dict__.copy()
                 del values['_sa_instance_state']
-                insert_stmt = insert(self.page_model).values(**values)
-                do_nothing_stmt = insert_stmt.on_conflict_do_nothing(index_elements=['fingerprint'])
-                self.session.execute(do_nothing_stmt)
+                insert_stmt = insert(self.page_model, prefixes=['IGNORE'], values=values)
+                self.session.execute(insert_stmt)
                 self.session.commit()
                 self.manager.logger.backend.debug('Creating request %s' % db_page)
             except IntegrityError as e:
