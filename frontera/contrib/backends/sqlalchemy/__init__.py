@@ -17,7 +17,7 @@ from sqlalchemy import or_, and_
 
 from frontera import Backend
 from frontera.core.models import Response as frontera_response
-from frontera.utils.sqlalchemy import MsgpackType
+from frontera.utils.db import MsgpackType
 
 
 DEFAULT_ENGINE = 'sqlite:///:memory:'
