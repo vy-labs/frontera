@@ -11,12 +11,13 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql.expression import insert
 from sqlalchemy.sql.functions import func
 from sqlalchemy.types import TypeDecorator
-from sqlalchemy import Column, String, Integer, PickleType
+from sqlalchemy import Column, String, Integer
 from sqlalchemy import UniqueConstraint
 from sqlalchemy import or_, and_
 
 from frontera import Backend
 from frontera.core.models import Response as frontera_response
+from frontera.utils.sqlalchemy import MsgpackType
 
 
 DEFAULT_ENGINE = 'sqlite:///:memory:'
@@ -65,11 +66,11 @@ class PageMixin(object):
     status_code = Column(String(20))
     state = Column(String(12), index=True)
     error = Column(String(50))
-    meta = Column(PickleType())
-    headers = Column(PickleType())
-    cookies = Column(PickleType())
+    meta = Column(MsgpackType())
+    headers = Column(MsgpackType())
+    cookies = Column(MsgpackType())
     method = Column(String(6))
-    body = Column(PickleType())
+    body = Column(MsgpackType())
     retries = Column(Integer(), default=0)
 
     @classmethod
