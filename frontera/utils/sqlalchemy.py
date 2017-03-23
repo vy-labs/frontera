@@ -1,5 +1,5 @@
 from msgpack import packb, unpackb
-from sqlalchemy import LargeBinary
+from sqlalchemy.types import LargeBinary
 from sqlalchemy.sql.type_api import TypeDecorator
 
 
