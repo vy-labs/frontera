@@ -39,7 +39,8 @@ setup(
         'six>=1.8.0',
         'w3lib>=1.16.0',
         'tldextract>=1.5.1',
-        'SQLAlchemy>=1.1.4'
+        'SQLAlchemy>=1.1.4',
+        'msgpack-python>=0.4'
     ],
     extras_require={
         'graphs': [
