@@ -243,9 +243,8 @@ class SQLiteBackend(Backend):
         db_page.error = error
         db_page.retries += 1
         db_page.meta = request.meta
-        self.session.commit()
-
         self._handle_redirects(request.meta)
+        self.session.commit()
 
         if db_page.retries >= self.retry_times:
             self.log(db_page.status_code, errtype=error)
