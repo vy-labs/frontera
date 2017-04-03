@@ -34,6 +34,7 @@ class SchedulerSpiderMiddleware(BaseSchedulerMiddleware):
         return self.scheduler.process_spider_output(response, result, spider)
 
     def process_spider_exception(self, response, exception, spider):
+        response.request.meta['error_status'] = response.status
         return self.scheduler.process_exception(response.request, exception, spider)
 
 
