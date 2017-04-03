@@ -222,7 +222,14 @@ class SQLiteBackend(Backend):
             except InvalidRequestError as e:
                 print e.message
 
-        self._handle_redirects(response.meta)
+        redirect_fingerprints = response.meta.get('redirect_fingerprints', [])
+        for fingerprint in redirect_fingerprints:
+            redirected_page = self.page_model.query(self.session).filter_by(fingerprint=fingerprint).first()
+            if redirected_page:
+                if self.keep_crawled:
+                    redirected_page.state = self.page_model.State.CRAWLED
+                else:
+                    self.session.delete(redirected_page)
 
         for link in links:
             db_page_from_link, created = self._get_or_create_db_page(link)
@@ -243,21 +250,10 @@ class SQLiteBackend(Backend):
         db_page.error = error
         db_page.retries += 1
         db_page.meta = request.meta
-        self._handle_redirects(request.meta)
         self.session.commit()
 
         if db_page.retries >= self.retry_times:
             self.log(db_page.status_code, errtype=error)
-
-    def _handle_redirects(self, meta):
-        redirect_fingerprints = meta.get('redirect_fingerprints', [])
-        for fingerprint in redirect_fingerprints:
-            redirected_page = self.page_model.query(self.session).filter_by(fingerprint=fingerprint).first()
-            if redirected_page:
-                if self.keep_crawled:
-                    redirected_page.state = self.page_model.State.CRAWLED
-                else:
-                    self.session.delete(redirected_page)
 
     def _create_page(self, obj):
         db_page = self.page_model()
