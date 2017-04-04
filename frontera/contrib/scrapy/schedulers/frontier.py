@@ -111,7 +111,7 @@ class FronteraScheduler(Scheduler):
                 yield element
         except Exception as e:
             self.process_exception(response.request, e, spider)
-            raise e
+            raise
 
         self.frontier.page_crawled(response=response,
                                    links=links)
