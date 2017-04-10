@@ -190,8 +190,7 @@ class SQLiteBackend(Backend):
                 and_(self.page_model.state == PageMixin.State.ERROR,
                      self.page_model.status_code.in_(self.retry_http_codes),
                      self.page_model.retries < self.retry_times).self_group(),
-                and_(self.page_model.state == PageMixin.State.NOT_CRAWLED,
-                     self.page_model.retries < self.retry_times).self_group())).with_lockmode('update')
+                and_(self.page_model.state == PageMixin.State.NOT_CRAWLED).self_group())).with_lockmode('update')
 
         query = self._get_order_by(query)
         if max_next_requests:
