@@ -227,6 +227,7 @@ class SQLiteBackend(Backend):
             db_page_from_link, created = self._get_or_create_db_page(link)
             if created:
                 db_page_from_link.depth = depth+1
+            self.session.commit()
 
         self.session.commit()
 
