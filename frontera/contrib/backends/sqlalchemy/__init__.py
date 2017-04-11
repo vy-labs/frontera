@@ -5,7 +5,6 @@ import logging
 from airbrake.notifier import Airbrake
 from sqlalchemy.exc import IntegrityError, InvalidRequestError, OperationalError
 
-from scrapy.http import Request
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
