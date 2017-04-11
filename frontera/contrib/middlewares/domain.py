@@ -1,4 +1,5 @@
 import re
+from scrapy.http import Request
 
 from frontera.core.components import Middleware
 from frontera.utils.url import parse_domain_from_url_fast

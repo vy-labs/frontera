@@ -207,7 +207,7 @@ class SQLiteBackend(Backend):
         self.session.commit()
         return next_pages
 
-    def page_crawled(self, response, result):
+    def page_crawled(self, response, links):
         db_page, _ = self._get_or_create_db_page(response)
 
         if db_page:
@@ -224,12 +224,11 @@ class SQLiteBackend(Backend):
 
         self._handle_redirects(response.meta)
 
-        for element in result:
-            if isinstance(element, Request):
-                db_page_from_link, created = self._get_or_create_db_page(result)
-                if created:
-                    db_page_from_link.depth = depth + 1
-            yield element
+        for link in links:
+            db_page_from_link, created = self._get_or_create_db_page(link)
+            if created:
+                db_page_from_link.depth = depth+1
+            self.session.commit()
 
         self.session.commit()
 

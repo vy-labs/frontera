@@ -104,12 +104,13 @@ class FronteraScheduler(Scheduler):
 
     def process_spider_output(self, response, result, spider):
         try:
-            for x in self.frontier.page_crawled(response=response, result=result):
+            for x in result:
                 yield x
         except Exception as e:
             self.process_exception(response.request, e, spider)
             raise
 
+        self.frontier.page_crawled(response=response, result=result)
         self.stats_manager.add_crawled_page(response.status)
 
     def process_exception(self, request, exception, spider):

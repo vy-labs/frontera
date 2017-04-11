@@ -1,3 +1,4 @@
+from scrapy.http import Request
 from frontera.core.manager import FrontierManager
 from converters import BaseRequestConverter, BaseResponseConverter
 
@@ -29,11 +30,15 @@ class FrontierManagerWrapper(object):
         frontier_requests = self.manager.get_next_requests(max_next_requests=max_next_requests, **kwargs)
         return [self.request_converter.from_frontier(frontier_request) for frontier_request in frontier_requests]
 
-    def page_crawled(self, response, links=None):
+    def frontera_request_generator(self, result):
+        for element in result:
+            if isinstance(element, Request):
+                yield self.request_converter.to_frontier(element)
+
+    def page_crawled(self, response, result=None):
         frontier_response = self.response_converter.to_frontier(response)
-        frontier_links = [self.request_converter.to_frontier(link) for link in links]
         self.manager.page_crawled(response=frontier_response,
-                                  links=frontier_links)
+                                  links=self.frontera_request_generator(result))
 
     def request_error(self, request, error):
         self.manager.request_error(request=self.request_converter.to_frontier(request),
