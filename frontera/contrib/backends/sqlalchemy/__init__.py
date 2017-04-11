@@ -5,6 +5,7 @@ import logging
 from airbrake.notifier import Airbrake
 from sqlalchemy.exc import IntegrityError, InvalidRequestError, OperationalError
 
+from scrapy.http import Request
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -206,7 +207,7 @@ class SQLiteBackend(Backend):
         self.session.commit()
         return next_pages
 
-    def page_crawled(self, response, links):
+    def page_crawled(self, response, result):
         db_page, _ = self._get_or_create_db_page(response)
 
         if db_page:
@@ -223,10 +224,12 @@ class SQLiteBackend(Backend):
 
         self._handle_redirects(response.meta)
 
-        for link in links:
-            db_page_from_link, created = self._get_or_create_db_page(link)
-            if created:
-                db_page_from_link.depth = depth+1
+        for element in result:
+            if isinstance(element, Request):
+                db_page_from_link, created = self._get_or_create_db_page(result)
+                if created:
+                    db_page_from_link.depth = depth + 1
+            yield element
 
         self.session.commit()
 

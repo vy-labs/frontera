@@ -38,10 +38,10 @@ class StatsManager(object):
     def add_seeds(self, count=1):
         self._inc_value('seeds_count', count)
 
-    def add_crawled_page(self, status_code, n_links):
+    def add_crawled_page(self, status_code):
         self._inc_value('crawled_pages_count')
         self._inc_value('crawled_pages_count/%s' % str(status_code))
-        self._inc_value('links_extracted_count', n_links)
+        #self._inc_value('links_extracted_count', n_links)
 
     def add_redirected_requests(self, count=1):
         self._inc_value('redirected_requests_count', count)
@@ -103,19 +103,14 @@ class FronteraScheduler(Scheduler):
         return request
 
     def process_spider_output(self, response, result, spider):
-        links = []
         try:
-            for element in result:
-                if isinstance(element, Request):
-                    links.append(element)
-                yield element
+            for x in self.frontier.page_crawled(response=response, result=result):
+                yield x
         except Exception as e:
             self.process_exception(response.request, e, spider)
             raise
 
-        self.frontier.page_crawled(response=response,
-                                   links=links)
-        self.stats_manager.add_crawled_page(response.status, len(links))
+        self.stats_manager.add_crawled_page(response.status)
 
     def process_exception(self, request, exception, spider):
         error_code = self._get_exception_code(exception)
