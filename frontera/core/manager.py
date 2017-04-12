@@ -452,8 +452,7 @@ class FrontierManager(BaseManager, ComponentsPipelineMixin):
         :return: None.
         """
         self._check_startstop()
-        self.logger.manager.debug(self._msg('PAGE_CRAWLED url=%s status=%s links=%s' %
-                                            (response.url, response.status_code, len(links) if links else 0)))
+        #self.logger.manager.debug(self._msg('PAGE_CRAWLED url=%s status=%s links=%s' % (response.url, response.status_code, len(links) if links else 0)))
         assert isinstance(response, self.response_model), "Response object must subclass '%s', '%s' found" % \
                                                           (self.response_model.__name__, type(response).__name__)
         assert hasattr(response, 'request') and response.request, "Empty response request"
@@ -464,9 +463,10 @@ class FrontierManager(BaseManager, ComponentsPipelineMixin):
         assert isinstance(response, self.response_model), "Response object must subclass '%s', '%s' found" % \
                                                           (self.response_model.__name__, type(response).__name__)
         if links:
-            for link in links:
-                assert isinstance(link, self._request_model), "Link objects must subclass '%s', '%s' found" % \
-                                                              (self._request_model.__name__, type(link).__name__)
+            for element in links:
+                assert isinstance(element, self._request_model), "Link objects must subclass '%s', '%s' found" % \
+                                                              (self._request_model.__name__, type(element).__name__)
+
         self._process_components(method_name='page_crawled',
                                  obj=response,
                                  return_classes=self.response_model,

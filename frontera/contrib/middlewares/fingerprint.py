@@ -33,6 +33,7 @@ class BaseFingerprintMiddleware(Middleware):
     def page_crawled(self, response, links):
         for link in links:
             self._add_fingerprint(link)
+
         return self._add_fingerprint(response)
 
     def request_error(self, request, error):
