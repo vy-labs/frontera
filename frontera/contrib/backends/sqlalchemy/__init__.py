@@ -61,7 +61,7 @@ class PageMixin(object):
     url = Column(String(1024), nullable=False)
     fingerprint = Column(String(40), primary_key=True, nullable=False, index=True)
     depth = Column(Integer, nullable=False)
-    created_at = Column(DatetimeTimestamp(20), nullable=False)
+    created_at = Column(DatetimeTimestamp(20), nullable=False, index=True)
     status_code = Column(String(20))
     state = Column(String(12), index=True)
     error = Column(String(50))
@@ -136,6 +136,7 @@ class SQLiteBackend(Backend):
                 self.try_execute('DROP INDEX ix_{}_fingerprint on `{}`;'.format(self.frontier, self.frontier), connection)
                 self.try_execute('DROP INDEX ix_{}_state on `{}`;'.format(self.frontier, self.frontier), connection)
                 self.try_execute('DROP INDEX ix_{}_select_requests on `{}`;'.format(self.frontier, self.frontier), connection)
+                self.try_execute('DROP INDEX ix_{}_created_at on `{}`;'.format(self.frontier, self.frontier), connection)
                 self.try_execute('ALTER TABLE `{}` RENAME TO `{}_{}`;'.format(self.frontier, self.frontier, int(time.time())), connection)
                 connection.close()
 
