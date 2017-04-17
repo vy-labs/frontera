@@ -208,13 +208,12 @@ class SQLiteBackend(Backend):
         return next_pages
 
     def page_crawled(self, response, links):
+        # links will always be empty, because we are not passing them forwards as they are already added in add seeds
         db_page, _ = self._get_or_create_db_page(response)
 
         if db_page:
             db_page.state = PageMixin.State.CRAWLED
             db_page.status_code = response.status_code
-
-        depth = db_page.depth if db_page else 0
 
         if not self.keep_crawled:
             try:
@@ -223,12 +222,6 @@ class SQLiteBackend(Backend):
                 print e.message
 
         self._handle_redirects(response.meta)
-
-        for link in links:
-            db_page_from_link, created = self._get_or_create_db_page(link)
-            if created:
-                db_page_from_link.depth = depth+1
-
         self.session.commit()
 
     def request_error(self, request, error):
