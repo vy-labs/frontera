@@ -347,7 +347,7 @@ class RandomBackend(SQLiteBackend):
     component_name = 'SQLite Random Backend'
 
     def _get_order_by(self, query):
-        return query.order_by(func.random())
+        return query
 
 
 
