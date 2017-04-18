@@ -30,7 +30,6 @@ class RequestConverter(BaseRequestConverter):
             request = scrapy_meta['frontier_request']
             if isinstance(request, FrontierRequest):
                 meta = request.meta
-            del scrapy_meta['frontier_request']
 
         meta.update({
             'scrapy_callback': cb,
@@ -81,7 +80,6 @@ class ResponseConverter(BaseResponseConverter):
         if b'redirect_urls' in scrapy_response.meta:
             frontier_request.meta[b'redirect_urls'] = scrapy_response.meta[b'redirect_urls']
 
-        del scrapy_response.meta['frontier_request']
         return FrontierResponse(url=scrapy_response.url,
                                 status_code=scrapy_response.status,
                                 headers=scrapy_response.headers,
