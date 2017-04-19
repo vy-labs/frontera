@@ -31,7 +31,7 @@ class FrontierManagerWrapper(object):
 
     def page_crawled(self, response, links=None):
         frontier_response = self.response_converter.to_frontier(response)
-        frontier_links = [self.request_converter.to_frontier(link) for link in links] if links else []
+        frontier_links = [self.request_converter.to_frontier(link) for link in links]
         self.manager.page_crawled(response=frontier_response,
                                   links=frontier_links)
 
