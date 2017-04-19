@@ -103,20 +103,19 @@ class FronteraScheduler(Scheduler):
         return request
 
     def process_spider_output(self, response, result, spider):
+        links = []
         try:
-            links_count = 0
             for element in result:
                 if isinstance(element, Request):
-                    links_count += 1
+                    links.append(element)
                 yield element
         except Exception as e:
             self.process_exception(response.request, e, spider)
             raise
 
-        frontier_request = response.meta[b'frontier_request']
-        self.frontier.page_crawled(response=response)
-        response.meta[b'frontier_request'] = frontier_request
-        self.stats_manager.add_crawled_page(response.status, links_count)
+        self.frontier.page_crawled(response=response,
+                                   links=links)
+        self.stats_manager.add_crawled_page(response.status, len(links))
 
     def process_exception(self, request, exception, spider):
         error_code = self._get_exception_code(exception)
