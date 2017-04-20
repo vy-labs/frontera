@@ -1,5 +1,4 @@
 from scrapy.core.scheduler import Scheduler
-from scrapy.item import BaseItem
 from scrapy.http import Request
 from logging import getLogger
 
@@ -106,22 +105,18 @@ class FronteraScheduler(Scheduler):
     def process_spider_output(self, response, result, spider):
         try:
             links_count = 0
-            item_yielded = False
             for element in result:
                 if isinstance(element, Request):
                     links_count += 1
-                elif isinstance(element, (BaseItem, dict)):
-                    item_yielded = True
                 yield element
         except Exception as e:
             self.process_exception(response.request, e, spider)
             raise
 
-        if not item_yielded:
-            frontier_request = response.meta[b'frontier_request']
-            self.frontier.page_crawled(response=response)
-            response.meta[b'frontier_request'] = frontier_request
-            self.stats_manager.add_crawled_page(response.status, links_count)
+        frontier_request = response.meta[b'frontier_request']
+        self.frontier.page_crawled(response=response)
+        response.meta[b'frontier_request'] = frontier_request
+        self.stats_manager.add_crawled_page(response.status, links_count)
 
     def process_exception(self, request, exception, spider):
         error_code = self._get_exception_code(exception)
