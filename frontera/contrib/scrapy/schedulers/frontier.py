@@ -1,5 +1,4 @@
 from scrapy.core.scheduler import Scheduler
-from scrapy.item import BaseItem
 from scrapy.http import Request
 from logging import getLogger
 
