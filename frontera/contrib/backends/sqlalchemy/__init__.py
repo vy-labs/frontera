@@ -25,7 +25,11 @@ DEFAULT_DROP_ALL_TABLES = False
 DEFAULT_CLEAR_CONTENT = False
 Base = declarative_base()
 
-DEBUG = False if os.environ.get("env", 'DEBUG') == 'PRODUCTION' else True
+DEBUG = False if os.environ.get("ENVIRONMENT", 'DEBUG') == 'PRODUCTION' else True
+
+
+class RequestDoesNotExist(Exception):
+    pass
 
 
 class DatetimeTimestamp(TypeDecorator):
@@ -209,7 +213,7 @@ class SQLiteBackend(Backend):
 
     def page_crawled(self, response, links):
         # links will always be empty, because we are not passing them forwards as they are already added in add seeds
-        db_page, _ = self._get_or_create_db_page(response)
+        db_page = self._get_page(response)
 
         if db_page:
             db_page.state = PageMixin.State.CRAWLED
@@ -225,7 +229,7 @@ class SQLiteBackend(Backend):
         self.session.commit()
 
     def request_error(self, request, error):
-        db_page, _ = self._get_or_create_db_page(request)
+        db_page = self._get_page(request)
         db_page.state = PageMixin.State.ERROR
         status = request.meta.get('scrapy_meta', {}).get('error_status', None)
         db_page.method = request.method
@@ -278,6 +282,12 @@ class SQLiteBackend(Backend):
             db_page.state = PageMixin.State.CRAWLED
 
         return db_page
+
+    def _get_page(self, obj):
+        db_page = self.page_model.query(self.session).get(obj.meta['fingerprint'])
+        if db_page:
+            return db_page
+        raise RequestDoesNotExist('Could not find request with fingerprint: %s in db' % obj.meta['fingerprint'])
 
     def _get_or_create_db_page(self, obj):
         if not self._request_exists(obj.meta['fingerprint']):
