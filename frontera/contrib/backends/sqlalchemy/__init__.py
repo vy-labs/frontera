@@ -110,12 +110,12 @@ class SQLiteBackend(Backend):
         self.keep_crawled = settings.attributes.get('spider_settings', {}).get('keep_crawled', True)
 
         assert 'frontier' in settings.attributes.get('spider_settings', {}), "frontier missing in frontera settings"
-        use_medium_blob_meta = settings.attributes.get('spider_settings',
-                                                       {}).get('kwargs', {}).get('use_medium_blob_meta', False)
+        use_large_meta = settings.attributes.get('spider_settings',
+                                                       {}).get('kwargs', {}).get('use_large_meta', False)
 
         class Page(PageMixin, Base):
             __tablename__ = self.frontier
-            if use_medium_blob_meta:
+            if use_large_meta:
                 meta = Column(MediumBlobPickleType())
         self.page_model = Page
 
