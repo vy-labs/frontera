@@ -7,9 +7,9 @@ from sqlalchemy.exc import IntegrityError, InvalidRequestError, OperationalError
 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine
+from sqlalchemy.dialects.mysql import MEDIUMBLOB
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql.expression import insert
-from sqlalchemy.sql.functions import func
 from sqlalchemy.types import TypeDecorator
 from sqlalchemy import Column, String, Integer, PickleType
 from sqlalchemy import UniqueConstraint
@@ -40,6 +40,10 @@ class DatetimeTimestamp(TypeDecorator):
 
     def process_result_value(self, value, _):
         return datetime.datetime.strptime(value, self.timestamp_format)
+
+
+class MediumBlobPickleType(PickleType):
+    impl = MEDIUMBLOB
 
 
 class PageMixin(object):
@@ -106,10 +110,13 @@ class SQLiteBackend(Backend):
         self.keep_crawled = settings.attributes.get('spider_settings', {}).get('keep_crawled', True)
 
         assert 'frontier' in settings.attributes.get('spider_settings', {}), "frontier missing in frontera settings"
+        use_large_meta = settings.attributes.get('spider_settings',
+                                                       {}).get('kwargs', {}).get('use_large_meta', False)
 
         class Page(PageMixin, Base):
             __tablename__ = self.frontier
-
+            if use_large_meta:
+                meta = Column(MediumBlobPickleType())
         self.page_model = Page
 
         self.spider_args = settings.attributes.get('spider_settings', {}).get('args', [])
