@@ -62,7 +62,7 @@ class PageMixin(object):
         CRAWLED = 'CRAWLED'
         ERROR = 'ERROR'
 
-    url = Column(String(1024), nullable=False)
+    url = Column(String(2083), nullable=False)
     fingerprint = Column(String(40), primary_key=True, nullable=False, index=True)
     depth = Column(Integer, nullable=False)
     created_at = Column(DatetimeTimestamp(20), nullable=False, index=True)
