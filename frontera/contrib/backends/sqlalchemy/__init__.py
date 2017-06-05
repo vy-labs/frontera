@@ -23,6 +23,7 @@ DEFAULT_ENGINE = 'sqlite:///:memory:'
 DEFAULT_ENGINE_ECHO = False
 DEFAULT_DROP_ALL_TABLES = False
 DEFAULT_CLEAR_CONTENT = False
+DEFAULT_SQL_MODE = 'STRICT_ALL_TABLES,NO_ENGINE_SUBSTITUTION'
 Base = declarative_base()
 
 DEBUG = False if os.environ.get("env", 'DEBUG') == 'PRODUCTION' else True
@@ -133,9 +134,10 @@ class SQLiteBackend(Backend):
         engine_echo = settings.get('SQLALCHEMYBACKEND_ENGINE_ECHO', DEFAULT_ENGINE_ECHO)
         drop_all_tables = settings.get('SQLALCHEMYBACKEND_DROP_ALL_TABLES', DEFAULT_DROP_ALL_TABLES)
         clear_content = settings.get('SQLALCHEMYBACKEND_CLEAR_CONTENT', DEFAULT_CLEAR_CONTENT)
+        sql_mode = settings.get('SQLALCHEMYBACKEND_SQL_MODE', DEFAULT_SQL_MODE)
 
         # Create engine
-        self.engine = create_engine(engine, echo=engine_echo)
+        self.engine = create_engine(engine, echo=engine_echo, connect_args={'sql_mode': sql_mode})
 
         if self.new_scrape:
             if self.engine.dialect.has_table(self.engine, self.frontier):
