@@ -7,6 +7,8 @@ from time import time
 
 from frontera.contrib.scrapy.manager import ScrapyFrontierManager
 from frontera.contrib.scrapy.settings_adapter import ScrapySettingsAdapter
+from frontera.utils.misc import cached_property
+
 
 STATS_PREFIX = 'frontera'
 
@@ -119,6 +121,7 @@ class FronteraScheduler(Scheduler):
         self.stats_manager.add_crawled_page(response.status, links_count)
 
     def process_exception(self, request, exception, spider):
+        self._add_retry_info_exception(request, exception)
         error_code = self._get_exception_code(exception)
         self.frontier.request_error(request=request, error=error_code)
         self.stats_manager.add_request_error(error_code)
@@ -184,3 +187,16 @@ class FronteraScheduler(Scheduler):
             if overused_factor > self.frontier.manager.settings.get('OVERUSED_SLOT_FACTOR'):
                 info['overused_keys'].append(key)
         return info
+
+    def _add_retry_info_exception(self, request, exception):
+        will_retry = exception.__class__.__name__ in self.exceptions_to_retry
+        request.meta['frontera_will_retry'] = will_retry
+        request.meta['frontera_retry_count'] = request.meta.get('frontera_retry_count', 0) + 1
+        # set meta as an attribute for exceptions
+        # This way all spider errbacks will receive meta
+        setattr(exception, 'meta', request.meta)
+
+    @cached_property
+    def exceptions_to_retry(self):
+        return self.frontier.manager.settings.attributes.get(
+            'spider_settings', {}).get('kwargs', {}).get('EXCEPTIONS_TO_RETRY', [])
