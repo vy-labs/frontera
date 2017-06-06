@@ -12,6 +12,7 @@ class IgnoreRequest(_IgnoreRequest):
 
     def __init__(self, *args, **kwargs):
         self.response = kwargs.pop('response')
+        self.meta = kwargs.pop('meta')
         super(IgnoreRequest, self).__init__(*args, **kwargs)
 
 
@@ -53,7 +54,7 @@ class SchedulerDownloaderMiddleware(BaseSchedulerMiddleware):
             # maybe shouldn't return response after logging erorr
             self.process_exception(request, HttpError(error_msg), spider)
             response.request = request
-            raise IgnoreRequest(response=response)
+            raise IgnoreRequest(response=response, meta=request.meta)
         self._handle_redirect(response, request)
         return response
 
