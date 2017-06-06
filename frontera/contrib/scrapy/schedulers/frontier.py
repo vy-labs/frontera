@@ -7,7 +7,6 @@ from time import time
 
 from frontera.contrib.scrapy.manager import ScrapyFrontierManager
 from frontera.contrib.scrapy.settings_adapter import ScrapySettingsAdapter
-from frontera.utils.misc import cached_property
 
 
 STATS_PREFIX = 'frontera'
@@ -196,7 +195,7 @@ class FronteraScheduler(Scheduler):
         # This way all spider errbacks will receive meta
         setattr(exception, 'meta', request.meta)
 
-    @cached_property
+    @property
     def exceptions_to_retry(self):
         return self.frontier.manager.settings.attributes.get(
             'spider_settings', {}).get('kwargs', {}).get('EXCEPTIONS_TO_RETRY', [])
