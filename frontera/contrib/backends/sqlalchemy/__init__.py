@@ -28,6 +28,33 @@ Base = declarative_base()
 
 DEBUG = False if os.environ.get("env", 'DEBUG') == 'PRODUCTION' else True
 
+logger = logging.getLogger(__name__)
+
+
+def retry_and_rollback(return_value=None, raise_exc=False):
+    def wrapper(func):
+        def func_wrapper(self, *args, **kwargs):
+            tries = 3
+            while True:
+                try:
+                    return func(self, *args, **kwargs)
+                except Exception as exc:
+                    msg = 'exception occured in {0}: {1!r}'.format(func.__name__, exc)
+                    logger.exception(msg)
+                    self.session.rollback()
+                    time.sleep(3)
+                    tries -= 1
+                    if tries > 0:
+                        logger.info("Retrying... Tries left %i" % tries)
+                        continue
+                    else:
+                        self.log(msg)
+                        if raise_exc:
+                            raise exc
+                        return return_value
+        return func_wrapper
+    return wrapper
+
 
 class DatetimeTimestamp(TypeDecorator):
 
@@ -191,6 +218,7 @@ class SQLiteBackend(Backend):
             db_page, _ = self._get_or_create_db_page(seed)
         self.session.commit()
 
+    @retry_and_rollback(return_value=[])
     def get_next_requests(self, max_next_requests, **kwargs):
         query = self.page_model.query(self.session).filter(
             or_(
