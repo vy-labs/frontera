@@ -19,7 +19,10 @@ class BasicCanonicalSolver(CanonicalSolver):
     def add_seeds(self, seeds):
         pass
 
-    def page_crawled(self, response, links):
+    def page_crawled(self, response):
+        pass
+
+    def links_extracted(self, request, links):
         pass
 
     def request_error(self, page, error):

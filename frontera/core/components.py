@@ -43,11 +43,18 @@ class Component(object):
         pass
 
     @abstractmethod
-    def page_crawled(self, response, links):
+    def page_crawled(self, response):
         """
         This method is called each time a page has been crawled.
 
         :param object response: The :class:`Response <frontera.core.models.Response>` object for the crawled page.
+        """
+        pass
+
+    @abstractmethod
+    def links_extracted(self, request, links):
+        """
+        :param oject request: The :class:`Request <frontera.core.models.Request>` object.
         :param list links: A list of :class:`Request <frontera.core.models.Request>` objects generated from \
         the links extracted for the crawled page.
         """
