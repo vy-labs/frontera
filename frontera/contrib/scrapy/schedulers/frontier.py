@@ -74,7 +74,7 @@ class StatsManager(object):
 
 class FronteraScheduler(Scheduler):
 
-    batch_size = 1000
+    batch_size = 2000
 
     def __init__(self, crawler):
         self.crawler = crawler
