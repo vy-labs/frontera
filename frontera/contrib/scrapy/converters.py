@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 from scrapy.http.request import Request as ScrapyRequest
 from scrapy.http.response import Response as ScrapyResponse
 
@@ -24,7 +26,7 @@ class RequestConverter(BaseRequestConverter):
         if callable(eb):
             eb = _find_method(self.spider, eb)
 
-        scrapy_meta = scrapy_request.meta
+        scrapy_meta = deepcopy(scrapy_request.meta)
         meta = {}
         if 'frontier_request' in scrapy_meta:
             request = scrapy_meta['frontier_request']
