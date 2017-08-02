@@ -1,3 +1,5 @@
+import itertools
+
 from scrapy.core.scheduler import Scheduler
 from scrapy.http import Request
 from logging import getLogger
@@ -72,6 +74,8 @@ class StatsManager(object):
 
 class FronteraScheduler(Scheduler):
 
+    batch_size = 2000
+
     def __init__(self, crawler):
         self.crawler = crawler
         self.stats_manager = StatsManager(crawler.stats)
@@ -87,11 +91,11 @@ class FronteraScheduler(Scheduler):
         return cls(crawler)
 
     def enqueue_request(self, request):
-        if not self._request_is_redirected(request):
+        if self._request_is_seed(request):
             self.frontier.add_seeds([request])
             self.stats_manager.add_seeds()
             return True
-        elif self.redirect_enabled:
+        elif self.redirect_enabled and self._request_is_redirected(request):
             self._add_pending_request(request)
             self.stats_manager.add_redirected_requests()
             return True
@@ -106,17 +110,21 @@ class FronteraScheduler(Scheduler):
     def process_spider_output(self, response, result, spider):
         try:
             links_count = 0
-            for element in result:
-                if isinstance(element, Request):
-                    links_count += 1
-                yield element
+            while True:
+                links = []
+                for element in itertools.islice(result, 0, self.batch_size):
+                    if isinstance(element, Request):
+                        links_count += 1
+                        links.append(element)
+                    yield element
+                if not links:
+                    break
+                self.frontier.links_extracted(response.request, links)
         except Exception as e:
             self.process_exception(response.request, e, spider)
             raise
 
-        frontier_request = response.meta[b'frontier_request']
         self.frontier.page_crawled(response=response)
-        response.meta[b'frontier_request'] = frontier_request
         self.stats_manager.add_crawled_page(response.status, links_count)
 
     def process_exception(self, request, exception, spider):
@@ -147,6 +155,9 @@ class FronteraScheduler(Scheduler):
 
     def has_pending_requests(self):
         return len(self) > 0
+
+    def _request_is_seed(self, request):
+        return bool(request.meta.get('is_seed', False))
 
     def _get_next_request(self):
         if not self.frontier.manager.finished and \

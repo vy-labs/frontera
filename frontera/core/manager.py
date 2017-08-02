@@ -441,19 +441,14 @@ class FrontierManager(BaseManager, ComponentsPipelineMixin):
         # Return next requests
         return next_requests
 
-    def page_crawled(self, response, links=None):
+    def page_crawled(self, response):
         """
-        Informs the frontier about the crawl result and extracted links for the current page.
-
+        Informs the frontier about the crawl result.
         :param object response: The :class:`Response <frontera.core.models.Response>` object for the crawled page.
-        :param list links: A list of :class:`Request <frontera.core.models.Request>` objects generated from \
-        the links extracted for the crawled page.
-
         :return: None.
         """
         self._check_startstop()
-        self.logger.manager.debug(self._msg('PAGE_CRAWLED url=%s status=%s links=%s' %
-                                            (response.url, response.status_code, len(links) if links else 0)))
+        self.logger.manager.debug(self._msg('PAGE_CRAWLED url=%s status=%s' %(response.url, response.status_code)))
         assert isinstance(response, self.response_model), "Response object must subclass '%s', '%s' found" % \
                                                           (self.response_model.__name__, type(response).__name__)
         assert hasattr(response, 'request') and response.request, "Empty response request"
@@ -463,14 +458,30 @@ class FrontierManager(BaseManager, ComponentsPipelineMixin):
                                                                   type(response.request).__name__)
         assert isinstance(response, self.response_model), "Response object must subclass '%s', '%s' found" % \
                                                           (self.response_model.__name__, type(response).__name__)
+        self._process_components(method_name='page_crawled',
+                                 obj=response,
+                                 return_classes=self.response_model)
+
+    def links_extracted(self, request, links):
+        """
+        Informs the frontier about extracted links for the request.
+        :param object request: The :class:`Request <frontera.core.models.Request>` object from which the links where crawled.
+        :param list links: A list of :class:`Request <frontera.core.models.Request>` objects generated from the links \
+        extracted for the request.
+        :return: None.
+        """
+        self._check_startstop()
+        self.logger.manager.debug('LINKS_EXTRACTED url=%s links=%d' %(request.url, len(links)))
+        assert isinstance(request, self.request_model), "Request object must subclass '%s', '%s' found" % \
+                                                        (self.request_model.__name__, type(request).__name__)
         if links:
             for link in links:
                 assert isinstance(link, self._request_model), "Link objects must subclass '%s', '%s' found" % \
                                                               (self._request_model.__name__, type(link).__name__)
-        self._process_components(method_name='page_crawled',
-                                 obj=response,
-                                 return_classes=self.response_model,
-                                 links=links or [])
+        self._process_components(method_name='links_extracted',
+                                 obj=request,
+                                 return_classes=self.request_model,
+                                 links=links)
 
     def request_error(self, request, error):
         """

@@ -244,7 +244,7 @@ class SQLiteBackend(Backend):
         self.session.commit()
         return next_pages
 
-    def page_crawled(self, response, links):
+    def page_crawled(self, response):
         # links will always be empty, because we are not passing them forwards as they are already added in add seeds
         db_page, _ = self._get_or_create_db_page(response)
 
@@ -260,6 +260,27 @@ class SQLiteBackend(Backend):
 
         self._handle_redirects(response.meta)
         self.session.commit()
+
+    def links_extracted(self, request, links):
+        pages = []
+        for link in links:
+            pages.append(self._create_page_dict(link))
+        self._bulk_insert_ignore(pages)
+
+    def _create_page_dict(self, page):
+        _dict = self._create_page(page).__dict__
+        del _dict['_sa_instance_state']
+        return _dict
+
+    def _bulk_insert_ignore(self, values):
+        try:
+            insert_stmt = insert(self.page_model, prefixes=['IGNORE'], values=values)
+            self.session.execute(insert_stmt)
+            self.session.commit()
+        except IntegrityError as e:
+            self.log(e.message)
+            self.session.rollback()
+            raise e
 
     def request_error(self, request, error):
         db_page, _ = self._get_or_create_db_page(request)

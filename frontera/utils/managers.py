@@ -29,11 +29,14 @@ class FrontierManagerWrapper(object):
         frontier_requests = self.manager.get_next_requests(max_next_requests=max_next_requests, **kwargs)
         return [self.request_converter.from_frontier(frontier_request) for frontier_request in frontier_requests]
 
-    def page_crawled(self, response, links=None):
+    def page_crawled(self, response):
         frontier_response = self.response_converter.to_frontier(response)
-        frontier_links = [self.request_converter.to_frontier(link) for link in links] if links else []
-        self.manager.page_crawled(response=frontier_response,
-                                  links=frontier_links)
+        self.manager.page_crawled(response=frontier_response)
+
+    def links_extracted(self, request, links):
+        frontier_links = [self.request_converter.to_frontier(link) for link in links]
+        self.manager.links_extracted(request=self.request_converter.to_frontier(request),
+                                     links=frontier_links)
 
     def request_error(self, request, error):
         self.manager.request_error(request=self.request_converter.to_frontier(request),
