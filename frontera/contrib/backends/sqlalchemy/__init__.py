@@ -261,6 +261,7 @@ class SQLiteBackend(Backend):
         self._handle_redirects(response.meta)
         self.session.commit()
 
+    @retry_and_rollback()
     def links_extracted(self, request, links):
         pages = []
         for link in links:
@@ -273,14 +274,9 @@ class SQLiteBackend(Backend):
         return _dict
 
     def _bulk_insert_ignore(self, values):
-        try:
-            insert_stmt = insert(self.page_model, prefixes=['IGNORE'], values=values)
-            self.session.execute(insert_stmt)
-            self.session.commit()
-        except IntegrityError as e:
-            self.log(e.message)
-            self.session.rollback()
-            raise e
+        insert_stmt = insert(self.page_model, prefixes=['IGNORE'], values=values)
+        self.session.execute(insert_stmt)
+        self.session.commit()
 
     def request_error(self, request, error):
         db_page, _ = self._get_or_create_db_page(request)
