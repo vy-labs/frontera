@@ -129,6 +129,4 @@ class RequestFingerprintMiddleware(BaseFingerprintMiddleware):
     def _add_fingerprint(self, obj):
         request = obj if isinstance(obj, Request) else obj.request
         obj.meta['fingerprint'] = self.fingerprint_function(request)
-        if 'redirect_urls' in obj.meta:
-            obj.meta['redirect_fingerprints'] = [self._get_fingerprint(url) for url in obj.meta['redirect_urls']]
         return obj
