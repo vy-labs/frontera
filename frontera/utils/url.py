@@ -5,7 +5,9 @@ import hashlib
 from six import moves
 from w3lib.util import unicode_to_str
 import tldextract
-
+from collections import defaultdict
+from datetime import datetime
+from six.moves.urllib.parse import parse_qsl, urlencode, urlparse, urlunsplit
 
 # Python 2.x urllib.always_safe become private in Python 3.x;
 # its content is copied here
@@ -109,3 +111,16 @@ def canonicalize_url(url, keep_blank_values=True, keep_fragments=False):
     return urlparse.urlunparse((scheme, netloc.lower(), path, params, query, fragment))
 
 
+def generate_unique_url(url):
+    parsed = urlparse(url)
+    query = defaultdict(list)
+    for k, v in parse_qsl(parsed.query):
+        query[k].append(v)
+    query['frontera_id'] = datetime.now().strftime('%Y%m%d%H%M%s%f')
+    return urlunsplit((
+        parsed.scheme,
+        parsed.netloc,
+        parsed.path,
+        urlencode(query.items(), True),
+        parsed.fragment
+    ))

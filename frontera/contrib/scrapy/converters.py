@@ -6,6 +6,7 @@ from scrapy.http.response import Response as ScrapyResponse
 from frontera.core.models import Request as FrontierRequest
 from frontera.core.models import Response as FrontierResponse
 from frontera.utils.converters import BaseRequestConverter, BaseResponseConverter
+from frontera.utils.url import generate_unique_url
 
 
 class RequestConverter(BaseRequestConverter):
@@ -27,6 +28,8 @@ class RequestConverter(BaseRequestConverter):
             eb = _find_method(self.spider, eb)
 
         scrapy_meta = deepcopy(scrapy_request.meta)
+        if scrapy_meta.get('dont_filter', False):
+            scrapy_request._url = generate_unique_url(scrapy_request.url)
         meta = {}
         if 'frontier_request' in scrapy_meta:
             request = scrapy_meta['frontier_request']
