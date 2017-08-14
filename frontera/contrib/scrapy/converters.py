@@ -28,7 +28,7 @@ class RequestConverter(BaseRequestConverter):
             eb = _find_method(self.spider, eb)
 
         scrapy_meta = deepcopy(scrapy_request.meta)
-        if scrapy_meta.get('dont_filter', False):
+        if scrapy_request.dont_filter:
             scrapy_request._url = generate_unique_url(scrapy_request.url)
         meta = {}
         if 'frontier_request' in scrapy_meta:
