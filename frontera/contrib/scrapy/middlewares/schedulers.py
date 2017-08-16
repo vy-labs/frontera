@@ -47,7 +47,8 @@ class SchedulerDownloaderMiddleware(BaseSchedulerMiddleware):
         status_code = response.status
         if ((status_code not in range(200, 303)) or
                 (status_code in consider_status_code_as_error)) \
-                and status_code not in handle_httpstatus_list:
+                and status_code not in handle_httpstatus_list \
+                and not request.meta.get('handle_httpstatus_all', False):
             error_msg = "Unhandled http status {0}, Response {1}".format(status_code, response)
             request.meta['error_status'] = status_code
             logger.debug('adding request: %s to request_error: Got status code: %d' % (request, status_code))
