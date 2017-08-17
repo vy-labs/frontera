@@ -28,7 +28,11 @@ class RequestConverter(BaseRequestConverter):
             eb = _find_method(self.spider, eb)
 
         scrapy_meta = deepcopy(scrapy_request.meta)
-        if scrapy_request.dont_filter:
+        # not using actual dont_filter attribute
+        # because this can create an issue if a Download middleware
+        # returns the request with dont_filter=True.
+        # This would leave the original request in QUEUED state
+        if scrapy_meta.get('dont_filter', False):
             scrapy_request._url = generate_unique_url(scrapy_request.url)
         meta = {}
         if 'frontier_request' in scrapy_meta:
