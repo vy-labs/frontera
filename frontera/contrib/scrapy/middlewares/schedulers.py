@@ -50,7 +50,7 @@ class SchedulerDownloaderMiddleware(BaseSchedulerMiddleware):
                 and status_code not in handle_httpstatus_list:
             error_msg = "Unhandled http status {0}, Response {1}".format(status_code, response)
             request.meta['error_status'] = status_code
-            logger.debug('adding request to request_error: Got status code: %d' % status_code)
+            logger.debug('adding request: %s to request_error: Got status code: %d' % (request, status_code))
             # maybe shouldn't return response after logging erorr
             self.process_exception(request, HttpError(error_msg), spider)
             response.request = request
