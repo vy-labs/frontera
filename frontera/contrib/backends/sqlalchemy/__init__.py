@@ -315,6 +315,7 @@ class SQLiteBackend(Backend):
         db_page.meta = obj.meta
         db_page.depth = 0
         db_page.retries = 0
+        db_page.body = None
 
         if not isinstance(obj, frontera_response):
             db_page.headers = obj.headers
