@@ -42,7 +42,7 @@ class SchedulerSpiderMiddleware(BaseSchedulerMiddleware):
 class SchedulerDownloaderMiddleware(BaseSchedulerMiddleware):
     def process_response(self, request, response, spider):
         consider_status_code_as_error = getattr(spider, 'consider_status_code_as_error', [])
-        handle_httpstatus_list = getattr(spider, 'handle_httpstatus_list', []) or \
+        handle_httpstatus_list = getattr(spider, 'handle_httpstatus_list', []) + \
                                  request.meta.get('handle_httpstatus_list', [])
         status_code = response.status
         if ((status_code not in range(200, 303)) or
