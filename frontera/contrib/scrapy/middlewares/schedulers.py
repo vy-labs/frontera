@@ -64,6 +64,7 @@ class SchedulerDownloaderMiddleware(BaseSchedulerMiddleware):
     def _handle_redirect(self, response, request):
         allowed_status = (301, 302, 303, 307)
         if 'Location' in response.headers and response.status in allowed_status:
+            request.meta.pop('is_seed', None)  # else initial requests will go to add seeds and will remain queued
             fingerprint_function = load_object(self.scheduler.frontier.manager.settings.REQUEST_FINGERPRINT_FUNCTION)
             request.meta['frontier_request'].meta.setdefault(
                 'redirect_fingerprints', []).append(fingerprint_function(request))
