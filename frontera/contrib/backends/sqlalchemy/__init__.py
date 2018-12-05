@@ -2,7 +2,6 @@ from __future__ import absolute_import
 import datetime
 import os, time
 import logging
-from airbrake.notifier import Airbrake
 from sqlalchemy.exc import IntegrityError, InvalidRequestError, OperationalError
 
 from sqlalchemy.ext.declarative import declarative_base
@@ -149,7 +148,6 @@ class SQLiteBackend(Backend):
 
         self.spider_args = settings.attributes.get('spider_settings', {}).get('args', [])
         self.spider_kwargs = settings.attributes.get('spider_settings', {}).get('kwargs', {})
-        self.airbrake = Airbrake(api_key=self.spider_kwargs['AIRBRAKE_API_KEY'], project_id=self.spider_kwargs['AIRBRAKE_PROJECT_ID'])
         self.retry_times = self.spider_kwargs.get('RETRY_TIMES', 0)
         self.retry_http_codes = self.spider_kwargs.get('RETRY_HTTP_CODES', [])
         self.exceptions_to_retry = self.spider_kwargs.get('EXCEPTIONS_TO_RETRY', [])
@@ -207,8 +205,7 @@ class SQLiteBackend(Backend):
 
     def log(self, message, errtype=None, extra={}):
         if not DEBUG:
-            self.airbrake.environment = self.frontier
-            self.airbrake.log(message, errtype=errtype, extra=extra)
+            logging.exception('{}:{}'.format(errtype, message))
         else:
             self.manager.logger.backend.debug('{}:{}'.format(errtype, message))
             logging.exception('{}:{}'.format(errtype, message))
