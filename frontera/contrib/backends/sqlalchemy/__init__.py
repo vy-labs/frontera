@@ -39,7 +39,7 @@ def retry_and_rollback(return_value=None, raise_exc=False):
                     return func(self, *args, **kwargs)
                 except Exception as exc:
                     msg = 'exception occured in {0}: {1!r}'.format(func.__name__, exc)
-                    logger.exception(msg)
+                    logger.info(msg)
                     self.session.rollback()
                     time.sleep(3)
                     tries -= 1
