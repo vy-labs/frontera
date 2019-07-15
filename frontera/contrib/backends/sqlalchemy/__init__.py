@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 def retry_and_rollback(return_value=None, raise_exc=False):
     def wrapper(func):
         def func_wrapper(self, *args, **kwargs):
-            tries = 3
+            tries = 5
             while True:
                 try:
                     return func(self, *args, **kwargs)
@@ -41,8 +41,8 @@ def retry_and_rollback(return_value=None, raise_exc=False):
                     msg = 'exception occured in {0}: {1!r}'.format(func.__name__, exc)
                     logger.info(msg)
                     self.session.rollback()
-                    time.sleep(3)
                     tries -= 1
+                    time.sleep((5 - tries) * 3)
                     if tries > 0:
                         logger.info("Retrying... Tries left %i" % tries)
                         continue
@@ -215,7 +215,7 @@ class SQLiteBackend(Backend):
             db_page, _ = self._get_or_create_db_page(seed)
         self.session.commit()
 
-    @retry_and_rollback(return_value=[])
+    @retry_and_rollback(return_value=[], raise_exc=True)
     def get_next_requests(self, max_next_requests, **kwargs):
         query = self.page_model.query(self.session).filter(
             or_(
@@ -258,7 +258,7 @@ class SQLiteBackend(Backend):
         self._handle_redirects(response.meta)
         self.session.commit()
 
-    @retry_and_rollback()
+    @retry_and_rollback(raise_exc=True)
     def links_extracted(self, request, links):
         pages = []
         for link in links:
