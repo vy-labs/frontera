@@ -91,7 +91,10 @@ class FronteraScheduler(Scheduler):
         return cls(crawler)
 
     def enqueue_request(self, request):
-        if self._request_is_seed(request):
+        if self.__is_splash_processed(request):
+            self._add_pending_request(request)
+            return True
+        elif self._request_is_seed(request):
             self.frontier.add_seeds([request])
             self.stats_manager.add_seeds()
             return True
@@ -158,6 +161,9 @@ class FronteraScheduler(Scheduler):
 
     def _request_is_seed(self, request):
         return bool(request.meta.get('is_seed', False))
+    
+    def __is_splash_processed(self, request):
+        return '_splash_processed' in request.meta
 
     def _get_next_request(self):
         if not self.frontier.manager.finished and \
