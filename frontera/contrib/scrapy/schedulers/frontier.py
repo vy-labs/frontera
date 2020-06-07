@@ -89,9 +89,12 @@ class FronteraScheduler(Scheduler):
     @classmethod
     def from_crawler(cls, crawler):
         return cls(crawler)
-
+    
     def enqueue_request(self, request):
         if self.__is_splash_processed(request):
+            self._add_pending_request(request)
+            return True
+        elif 'requeue' in request.meta:
             self._add_pending_request(request)
             return True
         elif self._request_is_seed(request):
@@ -103,7 +106,7 @@ class FronteraScheduler(Scheduler):
             self.stats_manager.add_redirected_requests()
             return True
         return False
-
+    
     def next_request(self):
         request = self._get_next_request()
         if request:
