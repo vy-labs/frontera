@@ -51,6 +51,7 @@ class Consumer(BaseStreamConsumer):
             request_timeout_ms=120 * 1000,
             heartbeat_interval_ms=10000,
             session_timeout_ms=40000,
+            max_poll_records=1,
             **kwargs
         )
 
@@ -83,7 +84,7 @@ class Consumer(BaseStreamConsumer):
 
     def close(self):
         self._consumer.commit()
-        self._consumer.close()
+        # self._consumer.close()
 
 
 class SimpleProducer(BaseStreamProducer):
